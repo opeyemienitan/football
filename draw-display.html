@@ -85,6 +85,7 @@
   .teams-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px;}
   .team-card{background:var(--card2);border:1px solid var(--border2);border-radius:14px;padding:14px 16px;min-height:120px;transition:.2s;}
   .team-card.active{border-color:var(--accent);box-shadow:0 0 0 2px rgba(26,128,116,.25),0 0 22px rgba(26,128,116,.15);}
+  .team-card.shuffling{border-color:var(--blue);box-shadow:0 0 0 2px rgba(47,176,196,.3),0 0 18px rgba(47,176,196,.25);}
   .team-card h3{margin:0 0 4px;font-size:15px;color:var(--accent2);display:flex;justify-content:space-between;align-items:center;}
   .team-card .cnt{font-size:11px;color:var(--muted);font-weight:400;background:var(--card);border-radius:10px;padding:2px 8px;}
   .team-card ol{margin:8px 0 0;padding-left:18px;font-size:12.5px;color:var(--text);line-height:1.6;max-height:160px;overflow-y:auto;}
@@ -124,6 +125,7 @@
       <button class="btn-primary" id="drawBtn" disabled>🎟️ Draw Name</button>
       <button class="btn-secondary" id="autoBtn" disabled>▶ Auto-play</button>
       <button class="btn-secondary" id="undoBtn" disabled style="background:#2a1620;color:#ff9a9a;border-color:#5a2634;">↩ Undo</button>
+      <button class="btn-secondary btn-sm" id="voiceBtn">🔊 Voice</button>
       <button class="btn-secondary btn-sm" id="fullscreenBtn">⛶ Fullscreen</button>
     </div>
   </div>
@@ -255,6 +257,20 @@
   let teamNames = TEAM_NAMES.slice(), totalPicks = DISPLAY_ALL_NAMES.length, pickOrder = [], rosters = [], spinTimer = null;
   let pool = [], history = [], autoOn = false, isAnimating = false;
 
+  // ---- persist state to localStorage so draw-admin.html (opened on this same
+  // computer/browser) can show a live-synced backup and export results, even if
+  // the CSV/teams.json is never downloaded from this page. Same-origin only. ----
+  const STORAGE_KEY = 'marmorDrawState_v1';
+  function persistState(){
+    try{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        teamNames, pickOrder, rosters, history,
+        totalPicks: pickOrder.length,
+        updatedAt: Date.now()
+      }));
+    }catch(err){}
+  }
+
   fullscreenBtn.addEventListener('click', () => {
     if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
     else document.exitFullscreen();
@@ -288,6 +304,7 @@
     drawBtn.disabled = false; autoBtn.disabled = false;
     undoBtn.disabled = true;
     exportCsvBtn.disabled = true; exportJsonBtn.disabled = true; printBtn.disabled = true;
+    persistState();
   });
 
   function localDrawNext(){
@@ -318,6 +335,7 @@
     drawBtn.disabled = false;
     autoOn = false; autoBtn.textContent = '▶ Auto-play'; autoBtn.disabled = false;
     exportCsvBtn.disabled = true; exportJsonBtn.disabled = true; printBtn.disabled = true;
+    persistState();
   });
 
   resetBtn.addEventListener('click', () => {
@@ -336,6 +354,7 @@
     undoBtn.disabled = true;
     exportCsvBtn.disabled = true; exportJsonBtn.disabled = true; printBtn.disabled = true;
     startBtn.disabled = false; startBtn.style.display = '';
+    persistState();
   });
 
   function downloadBlob(content, type, filename){
@@ -412,6 +431,37 @@
     dProgressLabel.textContent = done + ' of ' + total + ' drawn';
   }
 
+  // ---- visible tile reshuffle between rounds (FLIP animation) ----
+  // Purely visual — the actual pick is already drawn with a cryptographically
+  // secure RNG regardless of tile position. This just makes it obvious on
+  // screen that nothing about the layout/order is fixed or predictable.
+  function shuffleTilesAnimated(callback){
+    const cards = Array.from(teamsGrid.children);
+    if (cards.length < 2){ if (callback) callback(); return; }
+    const firstRects = new Map(cards.map(c => [c, c.getBoundingClientRect()]));
+    cards.forEach(c => c.classList.add('shuffling'));
+    const shuffled = shuffleCopy(cards);
+    shuffled.forEach(c => teamsGrid.appendChild(c));
+    shuffled.forEach(c => {
+      const first = firstRects.get(c);
+      const last = c.getBoundingClientRect();
+      const dx = first.left - last.left, dy = first.top - last.top;
+      c.style.transition = 'none';
+      c.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
+    });
+    void teamsGrid.offsetWidth; // force reflow
+    requestAnimationFrame(() => {
+      shuffled.forEach(c => {
+        c.style.transition = 'transform .6s cubic-bezier(.4,0,.2,1)';
+        c.style.transform = '';
+      });
+    });
+    setTimeout(() => {
+      shuffled.forEach(c => { c.style.transition = ''; c.classList.remove('shuffling'); });
+      if (callback) callback();
+    }, 650);
+  }
+
   const SPIN_MIN_DELAY = 55, SPIN_MAX_DELAY = 240, SPIN_TOTAL_TICKS = 26;
 
   function runDraw(teamIdx, finalName, teamName, pickNum, total){
@@ -465,6 +515,7 @@
     stageEl.classList.remove('shake'); void stageEl.offsetWidth; stageEl.classList.add('shake');
     miniSpark();
     playChime(false);
+    speak(name + ' — ' + teamNames[teamIdx]);
 
     rosters[teamIdx].push(name);
     if (!history.some(h => h.name === name && h.teamIdx === teamIdx)) history.push({name, teamIdx});
@@ -481,7 +532,10 @@
       bigConfetti();
       playChime(true);
       nextTeamName.textContent = '— Draw complete —';
+      setTimeout(() => speak('Draw complete! All 143 players have been allocated.'), 1200);
     }
+
+    persistState();
 
     setTimeout(() => {
       post({type:'landed-ack', pickNum});
@@ -490,6 +544,17 @@
       if (history.length >= pickOrder.length){
         autoOn = false; autoBtn.textContent = '▶ Auto-play'; autoBtn.disabled = true; drawBtn.disabled = true;
         exportCsvBtn.disabled = false; exportJsonBtn.disabled = false; printBtn.disabled = false;
+        return;
+      }
+      const roundJustFinished = history.length % teamNames.length === 0;
+      if (roundJustFinished){
+        drawBtn.disabled = true;
+        pickMeta.textContent = '🔀 Reshuffling team positions for the next round…';
+        shuffleTilesAnimated(() => {
+          pickMeta.textContent = 'Waiting for the next draw…';
+          drawBtn.disabled = false;
+          if (autoOn) setTimeout(localDrawNext, parseInt(paceRange.value, 10));
+        });
       } else {
         drawBtn.disabled = false;
         if (autoOn) setTimeout(localDrawNext, parseInt(paceRange.value, 10));
@@ -536,6 +601,26 @@
     });
   }
   document.addEventListener('click', () => ensureAudio(), {once:true});
+
+  // ---- voice announcement ----
+  let voiceOn = true;
+  function speak(text){
+    if (!voiceOn || !window.speechSynthesis) return;
+    try{
+      speechSynthesis.cancel(); // don't let announcements pile up/overlap
+      const u = new SpeechSynthesisUtterance(text);
+      u.rate = 0.95; u.pitch = 1; u.volume = 1;
+      speechSynthesis.speak(u);
+    }catch(err){}
+  }
+  const voiceBtn = document.getElementById('voiceBtn');
+  if (voiceBtn){
+    voiceBtn.addEventListener('click', () => {
+      voiceOn = !voiceOn;
+      voiceBtn.textContent = voiceOn ? '🔊 Voice' : '🔇 Voice';
+      if (!voiceOn && window.speechSynthesis) speechSynthesis.cancel();
+    });
+  }
 
   // ---- confetti ----
   const canvas = document.getElementById('confetti-canvas');

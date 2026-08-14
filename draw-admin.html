@@ -35,6 +35,8 @@
   .team-card h3{margin:0 0 4px;font-size:13.5px;color:var(--accent2);display:flex;justify-content:space-between;}
   .team-card .cnt{font-size:11px;color:var(--muted);font-weight:400;background:var(--card);border-radius:10px;padding:2px 8px;}
   .team-card ol{margin:8px 0 0;padding-left:16px;font-size:12px;color:var(--text);line-height:1.5;max-height:130px;overflow-y:auto;}
+  .sync-dot{width:8px;height:8px;border-radius:50%;background:var(--muted);display:inline-block;margin-right:6px;}
+  .sync-dot.live{background:var(--green);box-shadow:0 0 8px var(--green);}
 </style>
 </head>
 <body data-page="">
@@ -43,7 +45,7 @@
 
 <header class="page-head">
   <h1>Draw Control Panel</h1>
-  <p>Admin only — do not screen-share this page. Open the Display window and share <b>that</b> instead.</p>
+  <p>The live draw now runs from <b>draw-display.html</b> — this page just mirrors its results live as a backup, and can also edit the participant/team lists ahead of time.</p>
   <div class="badge-row">
     <div class="badge">📋 <b id="headerCount">143</b> participants</div>
     <div class="badge">⚽ <b id="headerTeamCount">16</b> teams</div>
@@ -52,6 +54,26 @@
 </header>
 
 <main>
+  <div class="panel" id="syncPanel">
+    <div class="row" style="justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+      <h2 style="margin:0;">📡 Live results from the Draw page (backup)</h2>
+      <div id="syncStatus" style="font-size:12.5px;color:var(--muted);"><span class="sync-dot" id="syncDot"></span>Checking for live draw data on this browser…</div>
+    </div>
+    <div class="progress-bar" style="margin-top:12px;"><div class="progress-fill" id="syncProgressFill"></div></div>
+    <div class="progress-label" id="syncProgressLabel">—</div>
+    <div class="row" style="margin-top:12px;">
+      <button class="btn-secondary btn-sm" id="syncExportCsvBtn" disabled>⬇ Export CSV</button>
+      <button class="btn-secondary btn-sm" id="syncExportJsonBtn" disabled>⬇ Export teams.json</button>
+    </div>
+    <div style="font-size:11.5px;color:var(--muted);margin-top:8px;">
+      This updates automatically while <code>draw-display.html</code> is open and running the draw on this same computer/browser — even if no one remembers to click export on that page, the results are recoverable here. (Only works on this device; it doesn't sync across the internet.)
+    </div>
+    <div class="teams-grid" id="syncTeamsGrid" style="margin-top:16px;max-height:420px;overflow-y:auto;"></div>
+  </div>
+
+  <details style="margin-bottom:22px;">
+    <summary style="font-size:14px;">⚙️ Optional: edit participant/team lists, or run the draw remotely from here instead</summary>
+    <div style="margin-top:16px;">
   <div class="dashboard-grid">
     <!-- LEFT -->
     <div class="panel">
@@ -150,6 +172,8 @@ Phase FC</textarea>
       <div class="teams-grid" id="adminTeamsGrid" style="max-height:420px;overflow-y:auto;"></div>
     </div>
   </div>
+    </div>
+  </details>
 </main>
 
 <footer class="page-foot">Admin control panel · 2026 MAR&amp;MOR Staff Football Tournament</footer>
@@ -531,6 +555,74 @@ Phase FC</textarea>
     a.href = url; a.download = filename; a.click();
     URL.revokeObjectURL(url);
   }
+
+  // ---- live sync panel: mirrors draw-display.html's state via localStorage, ----
+  // ---- so results are recoverable here even if no one exports from that page ----
+  const STORAGE_KEY = 'marmorDrawState_v1';
+  const syncStatus = document.getElementById('syncStatus');
+  const syncProgressFill = document.getElementById('syncProgressFill');
+  const syncProgressLabel = document.getElementById('syncProgressLabel');
+  const syncTeamsGrid = document.getElementById('syncTeamsGrid');
+  const syncExportCsvBtn = document.getElementById('syncExportCsvBtn');
+  const syncExportJsonBtn = document.getElementById('syncExportJsonBtn');
+  let liveState = null, lastSyncedAt = 0;
+
+  function pollLiveState(){
+    let raw;
+    try{ raw = localStorage.getItem(STORAGE_KEY); }catch(err){ raw = null; }
+    if (!raw){
+      syncStatus.innerHTML = '<span class="sync-dot"></span>No live draw data yet — open draw-display.html on this same computer/browser and click Start Draw.';
+      return;
+    }
+    let parsed;
+    try{ parsed = JSON.parse(raw); }catch(err){ return; }
+    if (!parsed || parsed.updatedAt === lastSyncedAt) return;
+    lastSyncedAt = parsed.updatedAt;
+    liveState = parsed;
+    renderSyncPanel();
+  }
+  function renderSyncPanel(){
+    if (!liveState) return;
+    const done = liveState.rosters.reduce((a,r)=>a+r.length,0);
+    const total = liveState.totalPicks || liveState.pickOrder.length;
+    const complete = done >= total && total > 0;
+    const secsAgo = Math.round((Date.now() - liveState.updatedAt) / 1000);
+    syncStatus.innerHTML = '<span class="sync-dot live"></span>Last update ' + (secsAgo < 3 ? 'just now' : secsAgo + 's ago') + (complete ? ' — draw complete' : ' — live');
+    syncProgressFill.style.width = (total ? (done/total*100) : 0) + '%';
+    syncProgressLabel.textContent = done + ' of ' + total + ' drawn';
+    syncTeamsGrid.innerHTML = '';
+    liveState.teamNames.forEach((tn, idx) => {
+      const target = liveState.pickOrder.filter(t => t === idx).length;
+      const players = liveState.rosters[idx] || [];
+      const card = document.createElement('div');
+      card.className = 'team-card';
+      card.innerHTML = '<h3>' + escapeHtml(tn) + '<span class="cnt">' + players.length + '/' + target + '</span></h3><ol>' + players.map(n => '<li>' + escapeHtml(n) + '</li>').join('') + '</ol>';
+      syncTeamsGrid.appendChild(card);
+    });
+    syncExportCsvBtn.disabled = done === 0;
+    syncExportJsonBtn.disabled = done === 0;
+  }
+  pollLiveState();
+  setInterval(pollLiveState, 1000);
+
+  syncExportCsvBtn.addEventListener('click', () => {
+    if (!liveState) return;
+    let csv = 'Pick Number,Team,Player Name\n';
+    liveState.history.forEach((h, i) => { csv += (i+1) + ',"' + liveState.teamNames[h.teamIdx].replace(/"/g,'""') + '","' + h.name.replace(/"/g,'""') + '"\n'; });
+    downloadBlob(csv, 'text/csv', 'team_draw_results.csv');
+  });
+  syncExportJsonBtn.addEventListener('click', () => {
+    if (!liveState) return;
+    const done = liveState.rosters.reduce((a,r)=>a+r.length,0);
+    const total = liveState.totalPicks || liveState.pickOrder.length;
+    const payload = {
+      _readme: "Recovered from draw-display.html's live sync (localStorage) via draw-admin.html. Replace data/teams.json in the repo with this file, then commit + push.",
+      drawCompleted: done >= total && total > 0,
+      drawDate: new Date().toISOString().slice(0,10),
+      teams: liveState.teamNames.map((tn, idx) => ({name: tn, players: liveState.rosters[idx] || []}))
+    };
+    downloadBlob(JSON.stringify(payload, null, 2), 'application/json', 'teams.json');
+  });
 
   printBtn.addEventListener('click', () => window.print());
 })();
