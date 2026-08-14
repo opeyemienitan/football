@@ -130,8 +130,15 @@
     const db = getDatabase(app);
     const stateRef = ref(db, 'drawState');
     window.marmorSync = {
-      push(state){ try{ set(stateRef, state); }catch(err){ console.warn('marmorSync push failed', err); } },
-      subscribe(cb){ onValue(stateRef, (snap) => cb(snap.val())); }
+      push(state){
+        try{
+          const p = set(stateRef, state);
+          if (p && p.catch) p.catch(err => console.warn('marmorSync push rejected (check Firebase rules):', err));
+        }catch(err){ console.warn('marmorSync push failed', err); }
+      },
+      subscribe(cb){
+        onValue(stateRef, (snap) => cb(snap.val()), (err) => console.warn('marmorSync subscribe rejected (check Firebase rules):', err));
+      }
     };
   }catch(err){
     console.warn('marmorSync init failed', err);
