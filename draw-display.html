@@ -313,6 +313,10 @@
   // and push it to Firebase (so any visitor, on any device, sees it live). ----
   const STORAGE_KEY = 'marmorDrawState_v1';
   function persistState(){
+    // Only a session opened with ?admin may write shared/live state — this
+    // stops any other window (including a legacy draw-admin.html-driven popup
+    // without ?admin) from ever corrupting what viewers see.
+    if (!isAdmin) return;
     const payload = {
       teamNames, pickOrder, rosters, history,
       totalPicks: pickOrder.length,
@@ -437,6 +441,13 @@
       if (totalPicks > 0 && history.length >= totalPicks) doneBanner.style.display = 'block';
       lastKnownHistoryLen = history.length;
       return;
+    }
+
+    // Self-heal: if the on-screen team cards don't match the current team
+    // list (e.g. a stray/legacy session briefly pushed bad data), rebuild
+    // from scratch instead of silently drifting out of sync.
+    if (teamsGrid.children.length !== teamNames.length){
+      renderTeams(true);
     }
 
     if (history.length > prevLen){
