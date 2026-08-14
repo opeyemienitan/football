@@ -92,6 +92,13 @@
   @keyframes fadeIn{from{opacity:0;transform:translateX(-4px);}to{opacity:1;transform:translateX(0);}}
 
   .done-banner{display:none;text-align:center;background:linear-gradient(135deg,#1c3a2b,var(--card2));border:1px solid var(--green);border-radius:14px;padding:18px;margin-bottom:18px;color:var(--green);font-size:15px;font-weight:600;}
+
+  .controls-row{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px;}
+  .ctrl-btns{display:flex;gap:8px;flex-wrap:wrap;}
+  .ctrl-btns button{font-size:14px;}
+  .controls-row-sub{display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:18px;align-items:center;}
+  .ctrl-btns-sub{display:flex;gap:6px;flex-wrap:wrap;}
+  #startBtn{background:linear-gradient(135deg,var(--blue),var(--brand-darkest));color:#fff;}
 </style>
 </head>
 <body data-page="draw">
@@ -104,22 +111,33 @@
   <p>Friday, 14 August 2026 · 4:00 p.m. · Streamed live via Microsoft Teams</p>
 </header>
 
-<main id="waitingSection">
-  <div class="waiting-screen">
-    <div class="big">⏳</div>
-    Waiting for the organizer to start the draw…
-  </div>
-</main>
-
-<main id="displayMain" class="hidden">
+<main id="displayMain">
   <div class="done-banner" id="doneBanner">🏆 All names have been drawn — team allocation is complete!</div>
 
-  <div class="row" style="justify-content:space-between;margin-bottom:16px;display:flex;gap:14px;flex-wrap:wrap;">
+  <div class="controls-row">
     <div style="flex:1;min-width:220px;">
       <div class="progress-bar"><div class="progress-fill" id="dProgressFill"></div></div>
       <div class="progress-label" id="dProgressLabel">0 drawn</div>
     </div>
-    <button class="btn-secondary btn-sm" id="fullscreenBtn">⛶ Fullscreen</button>
+    <div class="ctrl-btns">
+      <button class="btn-primary" id="startBtn">🔀 Start Draw</button>
+      <button class="btn-primary" id="drawBtn" disabled>🎟️ Draw Name</button>
+      <button class="btn-secondary" id="autoBtn" disabled>▶ Auto-play</button>
+      <button class="btn-secondary" id="undoBtn" disabled style="background:#2a1620;color:#ff9a9a;border-color:#5a2634;">↩ Undo</button>
+      <button class="btn-secondary btn-sm" id="fullscreenBtn">⛶ Fullscreen</button>
+    </div>
+  </div>
+  <div class="controls-row-sub">
+    <div style="display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px;">
+      Pace between picks (auto-play)
+      <input type="range" id="paceRange" min="800" max="4000" step="100" value="1800">
+    </div>
+    <div class="ctrl-btns-sub">
+      <button class="btn-secondary btn-sm" id="exportCsvBtn" disabled>⬇ CSV</button>
+      <button class="btn-secondary btn-sm" id="exportJsonBtn" disabled>⬇ teams.json</button>
+      <button class="btn-secondary btn-sm" id="printBtn" disabled>🖨 Print</button>
+      <button class="btn-secondary btn-sm" id="resetBtn" style="background:#2a1620;color:#ff9a9a;border-color:#5a2634;">⟲ Reset</button>
+    </div>
   </div>
 
   <div class="stage" id="stageEl">
@@ -159,9 +177,27 @@
   function escapeHtml(s){
     return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   }
+  function secureRandomIndex(max){
+    if (window.crypto && crypto.getRandomValues){
+      const arr = new Uint32Array(1);
+      crypto.getRandomValues(arr);
+      return arr[0] % max;
+    }
+    return Math.floor(Math.random() * max);
+  }
+  function shuffleCopy(arr){
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
 
-  // Only used to make the flicker reel look legit before landing — the actual
-  // pick is always decided by the admin window; this list is never authoritative.
+  const TEAM_NAMES = ["Watts FC","Circuit Breakers FC","Grid FC","Chillers FC","Precision FC","Current FC","Duct FC","Surge FC",
+               "Force FC","High Voltage FC","Conduit FC","Power FC","Splitters FC","Flow Control FC","Fuse FC","Phase FC"];
+
+  // This page now runs the draw itself — this is the authoritative participant pool.
   const DISPLAY_ALL_NAMES = [
 "ABDU BUBA Vannajigelar","Abdulaziz Alasa","ABDULQOYUM SANNI","AbdulRaheem Okikiola Malik","Abiola saheed",
 "Abraham Effiong Essang","ABUBAKAR TOHEEB","ADEGBAJU ADEBAYO","Adejumobi adeyemi","Adekanmi Adejuwon",
@@ -194,8 +230,6 @@
 "UGOCHUKWU EGBUNE","UniChi chigemezu John","Victor Adeyemo"
   ];
 
-  const waitingSection = document.getElementById('waitingSection');
-  const displayMain = document.getElementById('displayMain');
   const stageEl = document.getElementById('stageEl');
   const orbWrap = document.getElementById('orbWrap');
   const drawOrb = document.getElementById('drawOrb');
@@ -208,8 +242,18 @@
   const dProgressFill = document.getElementById('dProgressFill');
   const dProgressLabel = document.getElementById('dProgressLabel');
   const fullscreenBtn = document.getElementById('fullscreenBtn');
+  const startBtn = document.getElementById('startBtn');
+  const drawBtn = document.getElementById('drawBtn');
+  const autoBtn = document.getElementById('autoBtn');
+  const undoBtn = document.getElementById('undoBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const paceRange = document.getElementById('paceRange');
+  const exportCsvBtn = document.getElementById('exportCsvBtn');
+  const exportJsonBtn = document.getElementById('exportJsonBtn');
+  const printBtn = document.getElementById('printBtn');
 
-  let teamNames = [], totalPicks = 0, pickOrder = [], rosters = [], spinTimer = null;
+  let teamNames = TEAM_NAMES.slice(), totalPicks = DISPLAY_ALL_NAMES.length, pickOrder = [], rosters = [], spinTimer = null;
+  let pool = [], history = [], autoOn = false, isAnimating = false;
 
   fullscreenBtn.addEventListener('click', () => {
     if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
@@ -220,8 +264,104 @@
     if (window.opener){ try{ window.opener.postMessage(msg, '*'); }catch(err){} }
   }
   post({type:'ready'});
-  setTimeout(() => post({type:'ready'}), 400); // in case the admin window missed the first ping
+  setTimeout(() => post({type:'ready'}), 400); // harmless if no admin window is open
 
+  // ---- initial render (this page runs standalone — no admin window needed) ----
+  pickOrder = buildSnakeOrder(teamNames.length, totalPicks);
+  rosters = teamNames.map(() => []);
+  renderTeams();
+  updateProgress(0, totalPicks);
+
+  // ---- on-screen controls (visible to everyone you're screen-sharing to) ----
+  startBtn.addEventListener('click', () => {
+    pool = shuffleCopy(DISPLAY_ALL_NAMES);
+    history = [];
+    rosters = teamNames.map(() => []);
+    renderTeams();
+    updateProgress(0, pickOrder.length);
+    doneBanner.style.display = 'none';
+    nameStage.classList.remove('landed');
+    nameStage.textContent = 'Ready when you are';
+    nextTeamName.textContent = '—';
+    pickMeta.textContent = 'Waiting for the next draw…';
+    startBtn.disabled = true; startBtn.style.display = 'none';
+    drawBtn.disabled = false; autoBtn.disabled = false;
+    undoBtn.disabled = true;
+    exportCsvBtn.disabled = true; exportJsonBtn.disabled = true; printBtn.disabled = true;
+  });
+
+  function localDrawNext(){
+    if (isAnimating) return;
+    if (history.length >= pickOrder.length || pool.length === 0) return;
+    const teamIdx = pickOrder[history.length];
+    const idx = secureRandomIndex(pool.length);
+    const name = pool.splice(idx, 1)[0];
+    isAnimating = true;
+    drawBtn.disabled = true;
+    undoBtn.disabled = true;
+    runDraw(teamIdx, name, teamNames[teamIdx], history.length + 1, pickOrder.length);
+  }
+  drawBtn.addEventListener('click', localDrawNext);
+
+  autoBtn.addEventListener('click', () => {
+    autoOn = !autoOn;
+    autoBtn.textContent = autoOn ? '⏸ Pause' : '▶ Auto-play';
+    if (autoOn && !isAnimating) localDrawNext();
+  });
+
+  undoBtn.addEventListener('click', () => {
+    if (!history.length) return;
+    const last = history.pop();
+    pool.push(last.name);
+    runUndo(last.teamIdx, last.name, history.length, pickOrder.length);
+    undoBtn.disabled = history.length === 0;
+    drawBtn.disabled = false;
+    autoOn = false; autoBtn.textContent = '▶ Auto-play'; autoBtn.disabled = false;
+    exportCsvBtn.disabled = true; exportJsonBtn.disabled = true; printBtn.disabled = true;
+  });
+
+  resetBtn.addEventListener('click', () => {
+    if (!confirm('Start a brand new draw? This clears all current picks and re-shuffles from scratch.')) return;
+    autoOn = false; isAnimating = false;
+    pool = []; history = [];
+    rosters = teamNames.map(() => []);
+    renderTeams();
+    updateProgress(0, pickOrder.length);
+    doneBanner.style.display = 'none';
+    nameStage.classList.remove('landed');
+    nameStage.textContent = 'Ready when you are';
+    nextTeamName.textContent = '—';
+    pickMeta.textContent = 'Waiting for the next draw…';
+    drawBtn.disabled = true; autoBtn.disabled = true; autoBtn.textContent = '▶ Auto-play';
+    undoBtn.disabled = true;
+    exportCsvBtn.disabled = true; exportJsonBtn.disabled = true; printBtn.disabled = true;
+    startBtn.disabled = false; startBtn.style.display = '';
+  });
+
+  function downloadBlob(content, type, filename){
+    const blob = new Blob([content], {type});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+  }
+  exportCsvBtn.addEventListener('click', () => {
+    let csv = 'Pick Number,Team,Player Name\n';
+    history.forEach((h, i) => { csv += (i+1) + ',"' + teamNames[h.teamIdx].replace(/"/g,'""') + '","' + h.name.replace(/"/g,'""') + '"\n'; });
+    downloadBlob(csv, 'text/csv', 'team_draw_results.csv');
+  });
+  exportJsonBtn.addEventListener('click', () => {
+    const payload = {
+      _readme: "Generated by draw-display.html's Export button after the live draw. Replace data/teams.json in the repo with this file, then commit + push.",
+      drawCompleted: history.length >= pickOrder.length,
+      drawDate: new Date().toISOString().slice(0,10),
+      teams: teamNames.map((tn, idx) => ({name: tn, players: rosters[idx]}))
+    };
+    downloadBlob(JSON.stringify(payload, null, 2), 'application/json', 'teams.json');
+  });
+  printBtn.addEventListener('click', () => window.print());
+
+  // ---- optional: still accepts remote control from draw-admin.html if you open it that way ----
   window.addEventListener('message', (e) => {
     if (!e.data || !e.data.type) return;
     const d = e.data;
@@ -230,16 +370,12 @@
       pickOrder = buildSnakeOrder(teamNames.length, totalPicks);
       rosters = teamNames.map(() => []);
       renderTeams();
-      waitingSection.classList.add('hidden');
-      displayMain.classList.remove('hidden');
       doneBanner.style.display = 'none';
     } else if (d.type === 'sync'){
       teamNames = d.teamNames; totalPicks = d.totalPicks;
       pickOrder = buildSnakeOrder(teamNames.length, totalPicks);
       rosters = d.rosters.map(arr => arr.slice());
       renderTeams(true);
-      waitingSection.classList.add('hidden');
-      displayMain.classList.remove('hidden');
       const done = rosters.reduce((a,r)=>a+r.length,0);
       updateProgress(done, totalPicks);
       doneBanner.style.display = (done >= totalPicks && totalPicks > 0) ? 'block' : 'none';
@@ -331,6 +467,7 @@
     playChime(false);
 
     rosters[teamIdx].push(name);
+    if (!history.some(h => h.name === name && h.teamIdx === teamIdx)) history.push({name, teamIdx});
     const li = document.createElement('li');
     li.textContent = name;
     document.getElementById('team-list-' + teamIdx).appendChild(li);
@@ -346,7 +483,18 @@
       nextTeamName.textContent = '— Draw complete —';
     }
 
-    setTimeout(() => post({type:'landed-ack', pickNum}), 380);
+    setTimeout(() => {
+      post({type:'landed-ack', pickNum});
+      isAnimating = false;
+      undoBtn.disabled = history.length === 0;
+      if (history.length >= pickOrder.length){
+        autoOn = false; autoBtn.textContent = '▶ Auto-play'; autoBtn.disabled = true; drawBtn.disabled = true;
+        exportCsvBtn.disabled = false; exportJsonBtn.disabled = false; printBtn.disabled = false;
+      } else {
+        drawBtn.disabled = false;
+        if (autoOn) setTimeout(localDrawNext, parseInt(paceRange.value, 10));
+      }
+    }, 380);
   }
 
   function runUndo(teamIdx, playerName, pickNum, total){
