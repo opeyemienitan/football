@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Fixtures — 2026 MAR&amp;MOR Staff Football Tournament</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="stylesheet" href="assets/style.css" />
+</head>
+<body data-page="fixtures">
+
+<div id="site-nav"></div>
+
+<header class="page-head">
+  <h1>Fixtures &amp; Bracket</h1>
+  <p>Round of 16 → Quarter-Finals → Semi-Finals → 3rd Place Match &amp; Final</p>
+</header>
+
+<main id="mainContent">
+  <div class="empty-state"><div class="big">⏳</div>Loading fixtures…</div>
+</main>
+
+<footer class="page-foot">2026 MAR&amp;MOR Staff Football Tournament</footer>
+
+<script src="assets/nav.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  const ROUND_ORDER = ['R16','QF','SF','F3'];
+  const ROUND_LABEL = {R16:'Round of 16', QF:'Quarter-Finals', SF:'Semi-Finals', F3:'3rd Place & Final'};
+
+  fetch('data/fixtures.json').then(r => {
+    if (!r.ok) throw new Error('fetch failed');
+    return r.json();
+  }).then(render).catch(() => {
+    document.getElementById('mainContent').innerHTML =
+      '<div class="empty-state"><div class="big">⚠️</div>Could not load fixtures data.<br><span style="font-size:12px;">' +
+      'If you\'re viewing this file locally, run a local server (e.g. <code>npx serve</code>) — browsers block loading data/fixtures.json directly from disk.</span></div>';
+  });
+
+  function winnerOf(result){
+    if (!result || result.scoreA === null || result.scoreB === null || result.scoreA === undefined || result.scoreB === undefined) return null;
+    if (result.scoreA > result.scoreB) return 'A';
+    if (result.scoreB > result.scoreA) return 'B';
+    if (result.penA !== undefined && result.penB !== undefined && result.penA !== null && result.penB !== null){
+      if (result.penA > result.penB) return 'A';
+      if (result.penB > result.penA) return 'B';
+    }
+    return null; // unresolved tie
+  }
+
+  function render(data){
+    const results = data.results || {};
+    const schedule = data.schedule || {};
+
+    // Round of 16 teams come straight from data
+    const r16 = data.r16Pairs.map(p => ({id:p.id, teamA:p.teamA, teamB:p.teamB}));
+
+    // Quarter-finals: winners of adjacent R16 pairs
+    const qf = [];
+    for (let i = 0; i < r16.length; i += 2){
+      const m1 = r16[i], m2 = r16[i+1];
+      const w1 = winnerOf(results[m1.id]);
+      const w2 = winnerOf(results[m2.id]);
+      qf.push({
+        id: 'QF-' + (i/2),
+        teamA: w1 ? (w1 === 'A' ? m1.teamA : m1.teamB) : null,
+        teamB: w2 ? (w2 === 'A' ? m2.teamA : m2.teamB) : null,
+        fromA: m1.id, fromB: m2.id
+      });
+    }
+
+    // Semis
+    const sf = [];
+    for (let i = 0; i < qf.length; i += 2){
+      const m1 = qf[i], m2 = qf[i+1];
+      const w1 = winnerOf(results[m1.id]);
+      const w2 = winnerOf(results[m2.id]);
+      sf.push({
+        id: 'SF-' + (i/2),
+        teamA: w1 ? (w1 === 'A' ? m1.teamA : m1.teamB) : null,
+        teamB: w2 ? (w2 === 'A' ? m2.teamA : m2.teamB) : null,
+        fromA: m1.id, fromB: m2.id
+      });
+    }
+
+    // Final + 3rd place
+    const sf0win = winnerOf(results['SF-0']);
+    const sf1win = winnerOf(results['SF-1']);
+    const finalMatch = {
+      id: 'F-0',
+      teamA: sf0win ? (sf0win === 'A' ? sf[0].teamA : sf[0].teamB) : null,
+      teamB: sf1win ? (sf1win === 'A' ? sf[1].teamA : sf[1].teamB) : null
+    };
+    const thirdPlace = {
+      id: '3P-0',
+      teamA: sf0win ? (sf0win === 'A' ? sf[0].teamB : sf[0].teamA) : null,
+      teamB: sf1win ? (sf1win === 'A' ? sf[1].teamB : sf[1].teamA) : null
+    };
+
+    const rounds = [
+      {label:'Round of 16', matches: r16},
+      {label:'Quarter-Finals', matches: qf},
+      {label:'Semi-Finals', matches: sf},
+      {label:'3rd Place & Final', matches: [thirdPlace, finalMatch]}
+    ];
+
+    let html = '<div class="panel"><h2>🏆 Bracket</h2><div class="bracket">';
+    rounds.forEach(round => {
+      html += '<div class="bracket-round"><h4>' + round.label + '</h4>';
+      round.matches.forEach(m => {
+        const res = results[m.id] || {};
+        const win = winnerOf(res);
+        const dateStr = schedule[m.id] ? formatDate(schedule[m.id]) : '';
+        html += '<div class="match-card">' +
+          '<div class="vs-row' + (win === 'A' ? ' winner' : '') + '">' + teamLabel(m.teamA) + scoreLabel(res.scoreA) + '</div>' +
+          '<div class="vs-row' + (win === 'B' ? ' winner' : '') + '">' + teamLabel(m.teamB) + scoreLabel(res.scoreB) + '</div>' +
+          (dateStr ? '<div class="meta">' + dateStr + ' · ' + data.kickoff + '–' + data.kickoffEnd + '</div>' : '') +
+        '</div>';
+      });
+      html += '</div>';
+    });
+    html += '</div></div>';
+
+    // Schedule grouped by date
+    const byDate = {};
+    Object.keys(schedule).forEach(id => {
+      const d = schedule[id];
+      byDate[d] = byDate[d] || [];
+      byDate[d].push(id);
+    });
+    const dates = Object.keys(byDate).sort();
+    html += '<div class="panel"><h2>🗓️ Weekly Schedule</h2><div class="schedule-list">';
+    dates.forEach(d => {
+      const matchLabels = byDate[d].map(id => {
+        const m = findMatch(id, r16, qf, sf, thirdPlace, finalMatch);
+        return teamLabel(m ? m.teamA : null, true) + ' <span>vs</span> ' + teamLabel(m ? m.teamB : null, true);
+      }).join(' &nbsp;·&nbsp; ');
+      html += '<div class="schedule-item"><div class="date">' + formatDate(d) + '</div><div class="matches">' + matchLabels + '</div></div>';
+    });
+    html += '</div></div>';
+
+    html += '<div class="panel"><h2>📍 Venue</h2><p style="color:var(--muted);">' + data.venue + '</p></div>';
+
+    document.getElementById('mainContent').innerHTML = html;
+  }
+
+  function findMatch(id, r16, qf, sf, thirdPlace, finalMatch){
+    return [...r16, ...qf, ...sf, thirdPlace, finalMatch].find(m => m.id === id);
+  }
+  function teamLabel(name, compact){
+    if (!name) return compact ? 'TBD' : '<span style="color:var(--muted);">TBD</span>';
+    return name;
+  }
+  function scoreLabel(s){
+    return (s === null || s === undefined) ? '' : ' <b style="float:right;">' + s + '</b>';
+  }
+  function formatDate(iso){
+    const d = new Date(iso + 'T00:00:00');
+    return d.toLocaleDateString('en-GB', {weekday:'short', day:'numeric', month:'short', year:'numeric'});
+  }
+})();
+</script>
+</body>
+</html>

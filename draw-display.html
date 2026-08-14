@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Live Team Draw — 2026 MAR&amp;MOR Staff Football Tournament</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="stylesheet" href="assets/style.css" />
+<style>
+  #confetti-canvas{position:fixed;inset:0;pointer-events:none;z-index:999;display:none;}
+
+  .progress-bar{height:10px;border-radius:6px;background:var(--card2);border:1px solid var(--border2);overflow:hidden;}
+  .progress-fill{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold2));width:0%;transition:width .4s ease;}
+  .progress-label{font-size:12px;color:var(--muted);margin-top:6px;}
+
+  .stage{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:34px;text-align:center;margin-bottom:20px;position:relative;overflow:hidden;transition:box-shadow .25s;}
+  .stage:before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 50% 0%, rgba(245,179,1,.10), transparent 60%);pointer-events:none;}
+  .stage:after{content:"";position:absolute;inset:6px;border-radius:14px;padding:2px;pointer-events:none;
+    background:conic-gradient(from 0deg, transparent 0%, var(--gold) 12%, transparent 26%, transparent 50%, var(--blue) 62%, transparent 76%);
+    -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor; mask-composite:exclude;
+    opacity:0; transition:opacity .25s;}
+  .stage.spinning{box-shadow:0 0 0 2px rgba(245,179,1,.3), 0 0 46px rgba(245,179,1,.22);}
+  .stage.spinning:after{opacity:1;animation:spinRing .85s linear infinite;}
+  @keyframes spinRing{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+
+  .beams{position:absolute;inset:-45%;pointer-events:none;opacity:0;mix-blend-mode:screen;transition:opacity .3s;
+    background:
+      conic-gradient(from 0deg at 28% 22%, transparent 0deg, rgba(62,166,255,.28) 7deg, transparent 18deg, transparent 342deg),
+      conic-gradient(from 170deg at 74% 14%, transparent 0deg, rgba(245,179,1,.24) 7deg, transparent 18deg, transparent 342deg);
+  }
+  .stage.spinning .beams{opacity:1;animation:beamSweep 2.6s linear infinite;}
+  @keyframes beamSweep{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+
+  .next-team-label{font-size:13px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;position:relative;}
+  .next-team-name{font-size:clamp(20px,3vw,30px);color:var(--blue);font-weight:700;margin:4px 0 14px;position:relative;transition:transform .2s;}
+  .stage.spinning .next-team-name{animation:teamGlow 1s ease-in-out infinite;}
+  @keyframes teamGlow{0%,100%{text-shadow:0 0 0 rgba(62,166,255,0);}50%{text-shadow:0 0 18px rgba(62,166,255,.7);}}
+
+  .orb-wrap{display:inline-block;margin-bottom:10px;position:relative;animation:idleBob 2.6s ease-in-out infinite;}
+  .orb-wrap.spinning{animation:orbBob .5s ease-in-out infinite alternate;}
+  @keyframes idleBob{0%,100%{transform:translateY(0);}50%{transform:translateY(-5px);}}
+  @keyframes orbBob{from{transform:translateY(0);}to{transform:translateY(-10px);}}
+  .orb{width:64px;height:64px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:26px;position:relative;
+    background:radial-gradient(circle at 32% 28%, #fff7d6, var(--gold) 45%, #7a5300 100%);
+    box-shadow:0 0 0 4px rgba(245,179,1,.14), 0 10px 22px rgba(0,0,0,.5), inset 0 -7px 14px rgba(0,0,0,.35);}
+  .orb.spinning{animation:orbSpin .5s linear infinite;}
+  @keyframes orbSpin{from{transform:rotate(0deg);}to{transform:rotate(360deg);}}
+  .orb.pop{animation:orbPop .5s ease-out;}
+  @keyframes orbPop{0%{transform:scale(1);opacity:1;filter:brightness(1);}40%{transform:scale(1.4);opacity:1;filter:brightness(1.7);}100%{transform:scale(.2);opacity:0;filter:brightness(1);}}
+
+  .flash{position:absolute;inset:0;border-radius:18px;pointer-events:none;opacity:0;
+    background:radial-gradient(circle, rgba(255,255,255,.92), rgba(255,255,255,0) 62%);}
+  .flash.burst{animation:flashBurst .55s ease-out;}
+  @keyframes flashBurst{0%{opacity:.85;transform:scale(.35);}100%{opacity:0;transform:scale(1.9);}}
+
+  .stage.shake{animation:stageShake .4s ease;}
+  @keyframes stageShake{
+    10%{transform:translate(-3px,1px);} 20%{transform:translate(3px,-1px);}
+    30%{transform:translate(-4px,0);}   40%{transform:translate(4px,1px);}
+    50%{transform:translate(-2px,-1px);}60%{transform:translate(2px,1px);}
+    70%{transform:translate(-1px,0);}   80%{transform:translate(1px,-1px);}
+    100%{transform:translate(0,0);}
+  }
+
+  .reel{position:relative;min-height:1.3em;overflow:hidden;-webkit-mask-image:linear-gradient(to bottom, transparent, #000 18%, #000 82%, transparent);mask-image:linear-gradient(to bottom, transparent, #000 18%, #000 82%, transparent);}
+  .name-stage{font-size:clamp(28px,5.6vw,54px);font-weight:800;min-height:1.3em;color:var(--gold2);letter-spacing:1px;position:relative;text-shadow:0 0 24px rgba(245,213,74,.35);display:inline-block;will-change:transform,opacity,filter;}
+  .name-stage.spinning{color:#bcd0ff;}
+  .name-stage.tick{animation:slotTick .11s cubic-bezier(.2,.9,.3,1);}
+  @keyframes slotTick{
+    0%{transform:translateY(-26px) scale(.92);opacity:0;filter:blur(3px);}
+    55%{transform:translateY(6px) scale(1.03);opacity:1;filter:blur(0.5px);}
+    100%{transform:translateY(0) scale(1);opacity:1;filter:blur(0);}
+  }
+  .name-stage.landed{animation:landPop .5s cubic-bezier(.34,1.56,.64,1);}
+  @keyframes landPop{
+    0%{transform:translateY(0) scale(1.4);filter:blur(0);text-shadow:0 0 46px rgba(245,213,74,1);}
+    55%{transform:scale(.93);}
+    100%{transform:scale(1);}
+  }
+  .pick-meta{margin-top:10px;color:var(--muted);font-size:13px;position:relative;}
+  .waiting-screen{text-align:center;padding:110px 20px;color:var(--muted);}
+  .waiting-screen .big{font-size:40px;margin-bottom:14px;}
+
+  .teams-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px;}
+  .team-card{background:var(--card2);border:1px solid var(--border2);border-radius:14px;padding:14px 16px;min-height:120px;transition:.2s;}
+  .team-card.active{border-color:var(--gold);box-shadow:0 0 0 2px rgba(245,179,1,.25),0 0 22px rgba(245,179,1,.15);}
+  .team-card h3{margin:0 0 4px;font-size:15px;color:var(--gold2);display:flex;justify-content:space-between;align-items:center;}
+  .team-card .cnt{font-size:11px;color:var(--muted);font-weight:400;background:var(--card);border-radius:10px;padding:2px 8px;}
+  .team-card ol{margin:8px 0 0;padding-left:18px;font-size:12.5px;color:var(--text);line-height:1.6;max-height:160px;overflow-y:auto;}
+  .team-card ol li{opacity:0;animation:fadeIn .35s ease forwards;}
+  @keyframes fadeIn{from{opacity:0;transform:translateX(-4px);}to{opacity:1;transform:translateX(0);}}
+
+  .done-banner{display:none;text-align:center;background:linear-gradient(135deg,#1c3a2b,var(--card2));border:1px solid var(--green);border-radius:14px;padding:18px;margin-bottom:18px;color:var(--green);font-size:15px;font-weight:600;}
+</style>
+</head>
+<body data-page="draw">
+
+<div id="site-nav"></div>
+<canvas id="confetti-canvas"></canvas>
+
+<header class="page-head">
+  <h1>2026 MAR&amp;MOR Football Tournament — Live Team Allocation Draw</h1>
+  <p>Friday, 14 August 2026 · 4:00 p.m. · Streamed live via Microsoft Teams</p>
+</header>
+
+<main id="waitingSection">
+  <div class="waiting-screen">
+    <div class="big">⏳</div>
+    Waiting for the organizer to start the draw…
+  </div>
+</main>
+
+<main id="displayMain" class="hidden">
+  <div class="done-banner" id="doneBanner">🏆 All names have been drawn — team allocation is complete!</div>
+
+  <div class="row" style="justify-content:space-between;margin-bottom:16px;display:flex;gap:14px;flex-wrap:wrap;">
+    <div style="flex:1;min-width:220px;">
+      <div class="progress-bar"><div class="progress-fill" id="dProgressFill"></div></div>
+      <div class="progress-label" id="dProgressLabel">0 drawn</div>
+    </div>
+    <button class="btn-secondary btn-sm" id="fullscreenBtn">⛶ Fullscreen</button>
+  </div>
+
+  <div class="stage" id="stageEl">
+    <div class="beams" id="beams"></div>
+    <div class="flash" id="flashOverlay"></div>
+    <div class="next-team-label">Next Pick</div>
+    <div class="next-team-name" id="nextTeamName">—</div>
+    <div class="orb-wrap" id="orbWrap"><div class="orb" id="drawOrb">⚽</div></div>
+    <div class="reel"><div class="name-stage" id="nameStage">Ready when you are</div></div>
+    <div class="pick-meta" id="pickMeta">Waiting for the next draw…</div>
+  </div>
+
+  <div class="teams-grid" id="teamsGrid"></div>
+</main>
+
+<footer class="page-foot">Live Team Draw · 2026 MAR&amp;MOR Staff Football Tournament</footer>
+
+<script src="assets/nav.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  function buildSnakeOrder(numTeams, totalPicks){
+    const order = [];
+    let round = 0;
+    while (order.length < totalPicks){
+      const seq = [];
+      for (let i = 0; i < numTeams; i++) seq.push(i);
+      if (round % 2 === 1) seq.reverse();
+      const remaining = totalPicks - order.length;
+      const take = Math.min(numTeams, remaining);
+      for (let i = 0; i < take; i++) order.push(seq[i]);
+      round++;
+    }
+    return order;
+  }
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  // Only used to make the flicker reel look legit before landing — the actual
+  // pick is always decided by the admin window; this list is never authoritative.
+  const DISPLAY_ALL_NAMES = [
+"ABDU BUBA Vannajigelar","Abdulaziz Alasa","ABDULQOYUM SANNI","AbdulRaheem Okikiola Malik","Abiola saheed",
+"Abraham Effiong Essang","ABUBAKAR TOHEEB","ADEGBAJU ADEBAYO","Adejumobi adeyemi","Adekanmi Adejuwon",
+"Adekunle Ridwan","Adeniyi Amusa","ADEOGUN ADETUNJI","Adeoye Peter","Adenuga Daniel Ayomide",
+"Adewale abdulmajeed","Adewuyi Adebowale","ADEYEMI MOSES","Adeyemi paul","AFEEZ OLADIMEJJ",
+"Afolabi Khalil","AJAYI BABATUNDE","Ajibola David","AJIGBOYE OMOWOLE FESTUS","Ajir Zurumter",
+"AJOSE DANIEL","Akande Emmanuel Ayodeji","Akhigbe Victory","Akinbowale Abass Ayodeji","Akinsanya quadri olamide",
+"Akintunde tosin","Akorede Adegboyegun","ALABI FATAI","ALAKE AYOMIDE","Aliyu Muhideen",
+"ALUKO stephen","AMUSAT OLAWALE MARTINS","anifowoshe Hamzat ayinde","ANUSIEM EBUKA","APEH JOSEPH JESUS",
+"Awobiyi Sunday bukola","Ayodeji Abdulquadri Abiola","AZEEM ABIODUN","AZEEZ EGBELEKE","Azeez ishola Balaale",
+"Azeez Owoyele","AZIZ ABU","Babatunde Semiu","Bankole Temidayo Isaac","Bela jonah",
+"Bello Emmanuel","Benson Akaninyene","BENSON CHUKWUEBUKA IBEAKAMMA","Chinemelum Chika","CHINOYEREM EMMANUEL",
+"Christian Ebute john","Chukwuemelie Innocent Akunne","Damilola Dennis Emmanuel","Daniel mayowa","Daniel okwose chukwunekwu",
+"Dare Ibukunoluwa","Emmanuel Anthony Inyang","Emmanuel Effiong Bassey","Emmanuel Effiong Essang","Emmanuel Effiong okon",
+"EMMANUEL NANZA DENNIS","Emmanuel Popoola","Sam Owoedinyene","Ephraim Costa","EZEKIEL CHUKWUEMEKA",
+"EZEKIEL DAVID","Femi Mathew","fofana dolapo","Gafar Idris oluwambe","Ganeey Ahmed",
+"GARBRAH TEMILOLUWA","Gbenu Phillip","Habibullahi Adio","Hamzat Mustapha Adeyosoye","Idowu Sunday Olanrewaju",
+"Isaac Emmanuel","Jamiu Banjo","Jefferey Eghenege","Jesufewa Ojumu-Olatunji","Joseph Effiong Okon",
+"KALU SIMPLE","Kounate joshua","Kufre Effeh","Matthew Kingsley Francis","MICHAEL SERIBO",
+"Moses Chibueze","Moses effiong edet","MUIZ ADEDEJI","Muritala lukman","Mustapha Habeeb",
+"NNAMANI EMMANUEL","Obayomi Daud","OBIAKOR KAMSI","Obioma Ugonna","OGBU EMMANUEL",
+"OGOOLUWA OLAYINKA","OGUNJOBI TOBI","Ojo ifeoluwa olowolagba","Okey Henry Ejike","OLADEJO SUNDAY",
+"Oladepo Gbolahan Michael","Olajubu Emmanuel Ololade","Olakunde Samson","Olalekan Egunjobi","Olamide Ibrahim",
+"Olaniyi mayowa","Olarenwaju Gbemisola","OLATUNJI MOJUBA","Oloyede oladipupo","Olufemi Ojinni",
+"OLUSANYA TEMITOPE MICHEAL","OLUSHOLA BABATUNDE OLUMIDE","OLUWADAMILARE EMMANUEL","Oluwatosin Peter Afolayan","Omotosho Ayotunde",
+"ONJE PETER","Opemipo ogedengbe","OPEYEMI SAMUEL LAWAL","Oputu Simeon Laju","Orji Smart",
+"Oseni Afeez Temitope","Otusanya Bolaji Malik","Ove Samson","Paul-Anthony Ekunju Ntol","Peter Adeyemi",
+"RASAQ MUBARAQ OLAMILEKAN","Rasheed Ademuyiwa","Razaq adam opeyemi","RIDWAN BOLAKALE","Sadare Saheed",
+"Sebastine oladotun","Shedrack iliya","TAIWO YUSUF","TOBI MAMORA","Uche Sobechukwu Joshua",
+"UGOCHUKWU EGBUNE","UniChi chigemezu John","Victor Adeyemo"
+  ];
+
+  const waitingSection = document.getElementById('waitingSection');
+  const displayMain = document.getElementById('displayMain');
+  const stageEl = document.getElementById('stageEl');
+  const orbWrap = document.getElementById('orbWrap');
+  const drawOrb = document.getElementById('drawOrb');
+  const flashOverlay = document.getElementById('flashOverlay');
+  const nextTeamName = document.getElementById('nextTeamName');
+  const nameStage = document.getElementById('nameStage');
+  const pickMeta = document.getElementById('pickMeta');
+  const teamsGrid = document.getElementById('teamsGrid');
+  const doneBanner = document.getElementById('doneBanner');
+  const dProgressFill = document.getElementById('dProgressFill');
+  const dProgressLabel = document.getElementById('dProgressLabel');
+  const fullscreenBtn = document.getElementById('fullscreenBtn');
+
+  let teamNames = [], totalPicks = 0, pickOrder = [], rosters = [], spinTimer = null;
+
+  fullscreenBtn.addEventListener('click', () => {
+    if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
+    else document.exitFullscreen();
+  });
+
+  function post(msg){
+    if (window.opener){ try{ window.opener.postMessage(msg, '*'); }catch(err){} }
+  }
+  post({type:'ready'});
+  setTimeout(() => post({type:'ready'}), 400); // in case the admin window missed the first ping
+
+  window.addEventListener('message', (e) => {
+    if (!e.data || !e.data.type) return;
+    const d = e.data;
+    if (d.type === 'init'){
+      teamNames = d.teamNames; totalPicks = d.totalPicks;
+      pickOrder = buildSnakeOrder(teamNames.length, totalPicks);
+      rosters = teamNames.map(() => []);
+      renderTeams();
+      waitingSection.classList.add('hidden');
+      displayMain.classList.remove('hidden');
+      doneBanner.style.display = 'none';
+    } else if (d.type === 'sync'){
+      teamNames = d.teamNames; totalPicks = d.totalPicks;
+      pickOrder = buildSnakeOrder(teamNames.length, totalPicks);
+      rosters = d.rosters.map(arr => arr.slice());
+      renderTeams(true);
+      waitingSection.classList.add('hidden');
+      displayMain.classList.remove('hidden');
+      const done = rosters.reduce((a,r)=>a+r.length,0);
+      updateProgress(done, totalPicks);
+      doneBanner.style.display = (done >= totalPicks && totalPicks > 0) ? 'block' : 'none';
+    } else if (d.type === 'draw'){
+      runDraw(d.teamIdx, d.playerName, d.teamName, d.pickNum, d.total);
+    } else if (d.type === 'undo'){
+      runUndo(d.teamIdx, d.playerName, d.pickNum, d.total);
+    } else if (d.type === 'reset'){
+      teamNames = []; rosters = []; pickOrder = []; totalPicks = 0;
+      teamsGrid.innerHTML = '';
+      updateProgress(0, 0);
+      doneBanner.style.display = 'none';
+      nameStage.textContent = 'Ready when you are';
+      nextTeamName.textContent = '—';
+      pickMeta.textContent = 'Waiting for the next draw…';
+    }
+  });
+
+  function renderTeams(fromSync){
+    teamsGrid.innerHTML = '';
+    teamNames.forEach((tn, idx) => {
+      const target = pickOrder.filter(t => t === idx).length;
+      const card = document.createElement('div');
+      card.className = 'team-card';
+      card.id = 'team-card-' + idx;
+      const items = fromSync ? rosters[idx].map(n => '<li style="opacity:1;">' + escapeHtml(n) + '</li>').join('') : '';
+      card.innerHTML = '<h3>' + escapeHtml(tn) + '<span class="cnt" id="team-cnt-' + idx + '">' + rosters[idx].length + '/' + target + '</span></h3><ol id="team-list-' + idx + '">' + items + '</ol>';
+      teamsGrid.appendChild(card);
+    });
+  }
+
+  function updateProgress(done, total){
+    dProgressFill.style.width = (total ? (done/total*100) : 0) + '%';
+    dProgressLabel.textContent = done + ' of ' + total + ' drawn';
+  }
+
+  const SPIN_MIN_DELAY = 55, SPIN_MAX_DELAY = 240, SPIN_TOTAL_TICKS = 26;
+
+  function runDraw(teamIdx, finalName, teamName, pickNum, total){
+    document.querySelectorAll('.team-card').forEach(c => c.classList.remove('active'));
+    const activeCard = document.getElementById('team-card-' + teamIdx);
+    if (activeCard){ activeCard.classList.add('active'); activeCard.scrollIntoView({block:'nearest', behavior:'smooth'}); }
+    nextTeamName.textContent = teamName;
+
+    stageEl.classList.add('spinning');
+    orbWrap.classList.add('spinning');
+    drawOrb.classList.add('spinning');
+    nameStage.classList.add('spinning');
+    pickMeta.textContent = 'Drawing for ' + teamName + '…';
+
+    const assigned = new Set();
+    rosters.forEach(r => r.forEach(n => assigned.add(n)));
+    const flickerPool = DISPLAY_ALL_NAMES.filter(n => !assigned.has(n));
+    if (flickerPool.indexOf(finalName) === -1) flickerPool.push(finalName);
+
+    let tick = 0;
+    function step(){
+      const progress = tick / SPIN_TOTAL_TICKS;
+      const eased = 1 - Math.pow(1 - progress, 3);
+      const delay = SPIN_MIN_DELAY + (SPIN_MAX_DELAY - SPIN_MIN_DELAY) * eased;
+      const rnd = flickerPool.length ? flickerPool[Math.floor(Math.random()*flickerPool.length)] : finalName;
+      nameStage.textContent = rnd;
+      nameStage.classList.remove('tick'); void nameStage.offsetWidth; nameStage.classList.add('tick');
+      playTick(620 + eased*480);
+      tick++;
+      if (tick >= SPIN_TOTAL_TICKS){
+        spinTimer = null;
+        land(teamIdx, finalName, pickNum, total);
+      } else {
+        spinTimer = setTimeout(step, delay);
+      }
+    }
+    spinTimer = setTimeout(step, SPIN_MIN_DELAY);
+  }
+
+  function land(teamIdx, name, pickNum, total){
+    stageEl.classList.remove('spinning');
+    orbWrap.classList.remove('spinning');
+    drawOrb.classList.remove('spinning');
+    nameStage.classList.remove('spinning','tick');
+    nameStage.textContent = name;
+    void nameStage.offsetWidth;
+    nameStage.classList.add('landed');
+
+    drawOrb.classList.remove('pop'); void drawOrb.offsetWidth; drawOrb.classList.add('pop');
+    flashOverlay.classList.remove('burst'); void flashOverlay.offsetWidth; flashOverlay.classList.add('burst');
+    stageEl.classList.remove('shake'); void stageEl.offsetWidth; stageEl.classList.add('shake');
+    miniSpark();
+    playChime(false);
+
+    rosters[teamIdx].push(name);
+    const li = document.createElement('li');
+    li.textContent = name;
+    document.getElementById('team-list-' + teamIdx).appendChild(li);
+    document.getElementById('team-cnt-' + teamIdx).textContent = rosters[teamIdx].length + '/' + pickOrder.filter(t=>t===teamIdx).length;
+
+    pickMeta.textContent = 'Pick ' + pickNum + ' of ' + total + ' — assigned to ' + teamNames[teamIdx];
+    updateProgress(pickNum, total);
+
+    if (pickNum >= total){
+      doneBanner.style.display = 'block';
+      bigConfetti();
+      playChime(true);
+      nextTeamName.textContent = '— Draw complete —';
+    }
+
+    setTimeout(() => post({type:'landed-ack', pickNum}), 380);
+  }
+
+  function runUndo(teamIdx, playerName, pickNum, total){
+    const list = document.getElementById('team-list-' + teamIdx);
+    if (list && list.lastElementChild) list.removeChild(list.lastElementChild);
+    rosters[teamIdx].pop();
+    document.getElementById('team-cnt-' + teamIdx).textContent = rosters[teamIdx].length + '/' + pickOrder.filter(t=>t===teamIdx).length;
+    doneBanner.style.display = 'none';
+    nameStage.classList.remove('landed');
+    nameStage.textContent = playerName;
+    pickMeta.textContent = '↩ Undid pick ' + (pickNum + 1) + ' (' + playerName + ')';
+    updateProgress(pickNum, total);
+  }
+
+  // ---- sound ----
+  let audioCtx = null;
+  function ensureAudio(){
+    if (!audioCtx){ try{ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }catch(e){} }
+    return audioCtx;
+  }
+  function playTick(freq){
+    const ctx = ensureAudio(); if (!ctx) return;
+    const o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'square'; o.frequency.value = freq || 700;
+    g.gain.value = 0.03;
+    o.connect(g); g.connect(ctx.destination);
+    o.start(); o.stop(ctx.currentTime + 0.03);
+  }
+  function playChime(big){
+    const ctx = ensureAudio(); if (!ctx) return;
+    const freqs = big ? [523,659,784,1046] : [880, 1174];
+    freqs.forEach((f,i) => {
+      const o = ctx.createOscillator(), g = ctx.createGain();
+      o.type = 'sine'; o.frequency.value = f;
+      g.gain.value = 0.06;
+      o.connect(g); g.connect(ctx.destination);
+      const t = ctx.currentTime + i*0.09;
+      o.start(t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35); o.stop(t + 0.36);
+    });
+  }
+  document.addEventListener('click', () => ensureAudio(), {once:true});
+
+  // ---- confetti ----
+  const canvas = document.getElementById('confetti-canvas');
+  const ctx2d = canvas.getContext('2d');
+  let confettiPieces = [], confettiRAF = null;
+  function launchConfetti(count, maxFrames, originYFrac){
+    canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+    canvas.style.display = 'block';
+    const colors = ['#f5b301','#ffd54a','#3ea6ff','#3ddc84','#ff5c5c','#ffffff'];
+    const startY = (originYFrac !== undefined) ? canvas.height * originYFrac : -20;
+    for (let i = 0; i < count; i++){
+      confettiPieces.push({
+        x: Math.random()*canvas.width, y: startY - Math.random()*80,
+        r: 4 + Math.random()*5, c: colors[Math.floor(Math.random()*colors.length)],
+        vy: 2 + Math.random()*3, vx: -1.5 + Math.random()*3,
+        rot: Math.random()*360, vr: -6 + Math.random()*12, life: maxFrames
+      });
+    }
+    if (confettiRAF) return;
+    function tick(){
+      ctx2d.clearRect(0,0,canvas.width,canvas.height);
+      confettiPieces.forEach(p => { p.x += p.vx; p.y += p.vy; p.rot += p.vr; p.life--; });
+      confettiPieces = confettiPieces.filter(p => p.life > 0 && p.y < canvas.height + 40);
+      confettiPieces.forEach(p => {
+        ctx2d.save(); ctx2d.translate(p.x, p.y); ctx2d.rotate(p.rot*Math.PI/180);
+        ctx2d.fillStyle = p.c; ctx2d.fillRect(-p.r/2, -p.r/2, p.r, p.r*1.6); ctx2d.restore();
+      });
+      if (confettiPieces.length > 0) confettiRAF = requestAnimationFrame(tick);
+      else { confettiRAF = null; canvas.style.display = 'none'; }
+    }
+    confettiRAF = requestAnimationFrame(tick);
+  }
+  function bigConfetti(){ launchConfetti(220, 420); }
+  function miniSpark(){ launchConfetti(30, 90, 0.3); }
+  window.addEventListener('resize', () => { canvas.width = window.innerWidth; canvas.height = window.innerHeight; });
+})();
+</script>
+</body>
+</html>

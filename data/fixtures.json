@@ -1,0 +1,164 @@
+{
+  "_readme": "Round of 16 pairings are fixed (teams paired in announcement order). Later rounds are computed automatically from winners. To record a result each week, fill in scoreA/scoreB (and optionally scorersA/scorersB as [{\"name\":\"Player\",\"goals\":1}]) for that match's id, then commit + push.",
+  "venue": "El Cesped | The Football Centre, 25 Victoria Odeniran Street, Off Salvation Road, Opebi, Ikeja, Lagos",
+  "kickoff": "20:00",
+  "kickoffEnd": "22:00",
+  "r16Pairs": [
+    {
+      "id": "R16-0",
+      "teamA": "Watts FC",
+      "teamB": "Circuit Breakers FC"
+    },
+    {
+      "id": "R16-1",
+      "teamA": "Grid FC",
+      "teamB": "Chillers FC"
+    },
+    {
+      "id": "R16-2",
+      "teamA": "Precision FC",
+      "teamB": "Current FC"
+    },
+    {
+      "id": "R16-3",
+      "teamA": "Duct FC",
+      "teamB": "Surge FC"
+    },
+    {
+      "id": "R16-4",
+      "teamA": "Force FC",
+      "teamB": "High Voltage FC"
+    },
+    {
+      "id": "R16-5",
+      "teamA": "Conduit FC",
+      "teamB": "Power FC"
+    },
+    {
+      "id": "R16-6",
+      "teamA": "Splitters FC",
+      "teamB": "Flow Control FC"
+    },
+    {
+      "id": "R16-7",
+      "teamA": "Fuse FC",
+      "teamB": "Phase FC"
+    }
+  ],
+  "schedule": {
+    "R16-0": "2026-08-28",
+    "R16-1": "2026-08-28",
+    "R16-2": "2026-09-04",
+    "R16-3": "2026-09-04",
+    "R16-4": "2026-09-11",
+    "R16-5": "2026-09-11",
+    "R16-6": "2026-09-18",
+    "R16-7": "2026-09-18",
+    "QF-0": "2026-09-25",
+    "QF-1": "2026-09-25",
+    "QF-2": "2026-10-02",
+    "QF-3": "2026-10-02",
+    "SF-0": "2026-10-09",
+    "SF-1": "2026-10-09",
+    "3P-0": "2026-10-16",
+    "F-0": "2026-10-16"
+  },
+  "results": {
+    "R16-0": {
+      "scoreA": null,
+      "scoreB": null,
+      "scorersA": [],
+      "scorersB": []
+    },
+    "R16-1": {
+      "scoreA": null,
+      "scoreB": null,
+      "scorersA": [],
+      "scorersB": []
+    },
+    "R16-2": {
+      "scoreA": null,
+      "scoreB": null,
+      "scorersA": [],
+      "scorersB": []
+    },
+    "R16-3": {
+      "scoreA": null,
+      "scoreB": null,
+      "scorersA": [],
+      "scorersB": []
+    },
+    "R16-4": {
+      "scoreA": null,
+      "scoreB": null,
+      "scorersA": [],
+      "scorersB": []
+    },
+    "R16-5": {
+      "scoreA": null,
+      "scoreB": null,
+      "scorersA": [],
+      "scorersB": []
+    },
+    "R16-6": {
+      "scoreA": null,
+      "scoreB": null,
+      "scorersA": [],
+      "scorersB": []
+    },
+    "R16-7": {
+      "scoreA": null,
+      "scoreB": null,
+      "scorersA": [],
+      "scorersB": []
+    },
+    "QF-0": {
+      "scoreA": null,
+      "scoreB": null,
+      "scorersA": [],
+      "scorersB": []
+    },
+    "QF-1": {
+      "scoreA": null,
+      "scoreB": null,
+      "scorersA": [],
+      "scorersB": []
+    },
+    "QF-2": {
+      "scoreA": null,
+      "scoreB": null,
+      "scorersA": [],
+      "scorersB": []
+    },
+    "QF-3": {
+      "scoreA": null,
+      "scoreB": null,
+      "scorersA": [],
+      "scorersB": []
+    },
+    "SF-0": {
+      "scoreA": null,
+      "scoreB": null,
+      "scorersA": [],
+      "scorersB": []
+    },
+    "SF-1": {
+      "scoreA": null,
+      "scoreB": null,
+      "scorersA": [],
+      "scorersB": []
+    },
+    "3P-0": {
+      "scoreA": null,
+      "scoreB": null,
+      "scorersA": [],
+      "scorersB": []
+    },
+    "F-0": {
+      "scoreA": null,
+      "scoreB": null,
+      "scorersA": [],
+      "scorersB": []
+    }
+  }
+}

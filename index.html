@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>2026 MAR&amp;MOR Staff Football Tournament</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="stylesheet" href="assets/style.css" />
+</head>
+<body data-page="home">
+
+<div id="site-nav"></div>
+
+<header class="page-head">
+  <h1>2026 MAR&amp;MOR Staff Football Tournament</h1>
+  <p>A 16-team knockout tournament for MAR&amp;MOR staff across Lagos</p>
+  <div class="badge-row">
+    <div class="badge">📋 <b>143</b> eligible participants</div>
+    <div class="badge">⚽ <b>16</b> teams</div>
+    <div class="badge">🏆 Knockout: R16 → QF → SF → 3rd/Final</div>
+  </div>
+</header>
+
+<main>
+
+  <div class="panel">
+    <h2>🎟️ Live Team Allocation Draw</h2>
+    <p style="color:var(--muted);line-height:1.7;">
+      Registration is closed. The next stage is the live Team Allocation Draw — a physical ballot where every
+      eligible participant's name is drawn at random and allocated to one of the 16 tournament teams, streamed
+      live via Microsoft Teams.
+    </p>
+    <table style="margin:14px 0;">
+      <tbody>
+        <tr><td style="color:var(--muted);width:120px;">Date</td><td>Friday, 14 August 2026</td></tr>
+        <tr><td style="color:var(--muted);">Time</td><td>4:00 p.m.</td></tr>
+        <tr><td style="color:var(--muted);">Platform</td><td>Microsoft Teams (live)</td></tr>
+      </tbody>
+    </table>
+    <a class="btn btn-primary" href="draw-display.html">📺 Watch the Live Draw</a>
+  </div>
+
+  <div class="panel">
+    <h2>⚽ The 16 Teams</h2>
+    <div class="grid3" id="teamList">
+      <!-- populated by script -->
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="panel">
+      <h2>🗓️ Format &amp; Schedule</h2>
+      <p style="color:var(--muted);line-height:1.7;">
+        Straight knockout: <b style="color:var(--text)">Round of 16 → Quarter-Finals → Semi-Finals → 3rd Place Match &amp; Final</b>.
+        Two matches are played every Friday between <b style="color:var(--text)">8:00–10:00 p.m.</b>, starting
+        <b style="color:var(--text)">Friday, 28 August 2026</b>.
+      </p>
+      <a class="btn btn-secondary btn-sm" href="fixtures.html">View full fixtures &amp; bracket →</a>
+    </div>
+    <div class="panel">
+      <h2>📍 Venue</h2>
+      <p style="color:var(--muted);line-height:1.7;">
+        <b style="color:var(--text)">El Cesped | The Football Centre</b><br>
+        25, Victoria Odeniran Street, Off Salvation Road, Opebi, Ikeja, Lagos.
+      </p>
+      <h3 style="margin-top:18px;">Kit</h3>
+      <p style="color:var(--muted);line-height:1.7;">
+        The Company provides the tournament jersey. Players bring their own personal playing kit,
+        including appropriate footwear and other required playing gear.
+      </p>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>📊 Live Stats</h2>
+    <p style="color:var(--muted);">Results, top scorers, and tournament progress once matches kick off.</p>
+    <a class="btn btn-secondary btn-sm" href="stats.html">View stats →</a>
+  </div>
+
+</main>
+
+<footer class="page-foot">2026 MAR&amp;MOR Staff Football Tournament</footer>
+
+<script src="assets/nav.js"></script>
+<script>
+  var TEAMS = ["Watts FC","Circuit Breakers FC","Grid FC","Chillers FC","Precision FC","Current FC","Duct FC","Surge FC",
+               "Force FC","High Voltage FC","Conduit FC","Power FC","Splitters FC","Flow Control FC","Fuse FC","Phase FC"];
+  document.getElementById('teamList').innerHTML = TEAMS.map(function(t){
+    return '<div class="pill" style="text-align:center;padding:10px;font-size:13px;">' + t + '</div>';
+  }).join('');
+</script>
+</body>
+</html>

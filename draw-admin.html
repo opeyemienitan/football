@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Draw Admin — 2026 MAR&amp;MOR Staff Football Tournament</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="stylesheet" href="assets/style.css" />
+<style>
+  .dashboard-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:20px;align-items:start;}
+  @media(max-width:950px){.dashboard-grid{grid-template-columns:1fr;}}
+  .file-drop{border:2px dashed var(--border2);border-radius:12px;padding:18px;text-align:center;color:var(--muted);cursor:pointer;transition:.15s;font-size:13px;}
+  .file-drop:hover,.file-drop.drag{border-color:var(--gold);color:var(--text);background:rgba(245,179,1,.05);}
+  .file-drop input{display:none;}
+  textarea{width:100%;background:var(--card2);border:1px solid var(--border2);border-radius:10px;color:var(--text);padding:10px 12px;font-size:13px;font-family:inherit;resize:vertical;height:180px;line-height:1.5;}
+  label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px;margin-top:14px;}
+  .count-pill{display:inline-block;background:var(--card2);border:1px solid var(--border2);padding:4px 10px;border-radius:14px;font-size:12px;color:var(--muted);margin-top:8px;}
+  .count-pill.ok{border-color:var(--green);color:var(--green);}
+  .conn-pill{display:inline-flex;align-items:center;gap:6px;background:var(--card2);border:1px solid var(--border2);padding:5px 12px;border-radius:16px;font-size:12.5px;color:var(--muted);}
+  .conn-dot{width:8px;height:8px;border-radius:50%;background:var(--muted);}
+  .conn-pill.connecting .conn-dot{background:var(--gold);box-shadow:0 0 8px var(--gold);}
+  .conn-pill.connected .conn-dot{background:var(--green);box-shadow:0 0 8px var(--green);}
+  .conn-pill.off .conn-dot{background:var(--red);}
+  .log{max-height:190px;overflow-y:auto;font-size:12.5px;color:var(--text);background:var(--card2);border:1px solid var(--border2);border-radius:10px;padding:8px 12px;}
+  .log .entry{padding:4px 0;border-bottom:1px solid #182645;color:var(--muted);}
+  .log .entry:last-child{border-bottom:none;}
+  .log .entry b{color:var(--text);}
+  .log .entry.undo{color:var(--red);}
+  .progress-bar{height:10px;border-radius:6px;background:var(--card2);border:1px solid var(--border2);overflow:hidden;}
+  .progress-fill{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold2));width:0%;transition:width .4s ease;}
+  .progress-label{font-size:12px;color:var(--muted);margin-top:6px;}
+  details summary{cursor:pointer;color:var(--blue);font-size:13px;}
+  .teams-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;}
+  .team-card{background:var(--card2);border:1px solid var(--border2);border-radius:12px;padding:12px 14px;}
+  .team-card h3{margin:0 0 4px;font-size:13.5px;color:var(--gold2);display:flex;justify-content:space-between;}
+  .team-card .cnt{font-size:11px;color:var(--muted);font-weight:400;background:var(--card);border-radius:10px;padding:2px 8px;}
+  .team-card ol{margin:8px 0 0;padding-left:16px;font-size:12px;color:var(--text);line-height:1.5;max-height:130px;overflow-y:auto;}
+</style>
+</head>
+<body data-page="">
+
+<div id="site-nav"></div>
+
+<header class="page-head">
+  <h1>Draw Control Panel</h1>
+  <p>Admin only — do not screen-share this page. Open the Display window and share <b>that</b> instead.</p>
+  <div class="badge-row">
+    <div class="badge">📋 <b id="headerCount">143</b> participants</div>
+    <div class="badge">⚽ <b id="headerTeamCount">16</b> teams</div>
+    <div class="conn-pill off" id="connPill"><span class="conn-dot"></span><span id="connLabel">Display not connected</span></div>
+  </div>
+</header>
+
+<main>
+  <div class="dashboard-grid">
+    <!-- LEFT -->
+    <div class="panel">
+      <div class="row" style="justify-content:space-between;">
+        <h2 style="margin:0;">✅ Participants loaded — <span id="nameCountHeader">143</span> names</h2>
+      </div>
+      <div style="font-size:12px;color:var(--muted);margin-top:4px;">
+        Note: the tournament announcement cited 142 eligible participants; this updated list contains 143. Double-check against your final sign-off before the draw.
+      </div>
+
+      <details style="margin-top:12px;">
+        <summary>View, edit, or replace the participant list</summary>
+        <div style="margin-top:14px;">
+          <div class="file-drop" id="dropZone">
+            📂 Click to choose, or drag &amp; drop a <b>CSV / Excel (.xlsx)</b> file to replace the list below
+            <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" />
+          </div>
+          <label>...or edit the pasted names directly (one per line):</label>
+          <textarea id="namesInput"></textarea>
+          <div id="nameCount" class="count-pill">0 names loaded</div>
+        </div>
+      </details>
+
+      <details style="margin-top:16px;">
+        <summary>View or edit the 16 team names</summary>
+        <div style="margin-top:14px;">
+          <label>One team per line (order = order teams pick in the draft):</label>
+          <textarea id="teamsInput" style="height:230px;">Watts FC
+Circuit Breakers FC
+Grid FC
+Chillers FC
+Precision FC
+Current FC
+Duct FC
+Surge FC
+Force FC
+High Voltage FC
+Conduit FC
+Power FC
+Splitters FC
+Flow Control FC
+Fuse FC
+Phase FC</textarea>
+        </div>
+      </details>
+
+      <div style="font-size:13px;color:var(--muted);line-height:1.7;margin-top:16px;">
+        Each name is pulled <b style="color:var(--text)">live and at random</b> from the full pool. Picks are allocated using a
+        <b style="color:var(--text)">balanced snake order</b> (Team 1→16, then 16→1, repeating) — right now that's
+        <b style="color:var(--text)" id="splitPreview">—</b>.
+      </div>
+
+      <div class="row" style="margin-top:20px;">
+        <button class="btn-primary" id="lockInBtn">🔒 Lock In Lists &amp; Enable Draw</button>
+        <button class="btn-secondary" id="openDisplayBtn">🖥️ Open Display Window</button>
+      </div>
+      <div id="popupHint" class="hidden" style="font-size:12px;color:var(--gold2);margin-top:8px;">
+        If nothing opened, your browser may have blocked the popup — allow popups for this page, or
+        <a id="manualDisplayLink" href="draw-display.html" target="_blank">click here to open it manually</a>.
+      </div>
+    </div>
+
+    <!-- RIGHT -->
+    <div class="panel">
+      <h2>Draw Controls</h2>
+      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+      <div class="progress-label" id="progressLabel">Not started</div>
+
+      <div class="row" style="margin-top:16px;">
+        <button class="btn-primary" id="drawBtn" disabled>🎟️ Draw Name</button>
+        <button class="btn-secondary" id="autoBtn" disabled>▶ Auto-play</button>
+        <button class="btn-secondary" id="undoBtn" disabled style="background:#2a1620;color:#ff9a9a;border-color:#5a2634;">↩ Undo</button>
+      </div>
+      <div class="row" style="margin-top:10px;">
+        <div style="display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12.5px;">
+          Pace between picks
+          <input type="range" id="speedRange" min="800" max="4000" step="100" value="1800">
+        </div>
+      </div>
+
+      <h3 style="margin-top:20px;">Live pick log</h3>
+      <div class="log" id="pickLog"><div class="entry">No picks yet.</div></div>
+
+      <div class="row" style="margin-top:16px;">
+        <button class="btn-secondary btn-sm" id="resyncBtn" disabled>🔄 Resync Display</button>
+        <button class="btn-secondary btn-sm" id="exportCsvBtn" disabled>⬇ Export CSV</button>
+        <button class="btn-secondary btn-sm" id="exportJsonBtn" disabled>⬇ Export teams.json</button>
+        <button class="btn-secondary btn-sm" id="printBtn" disabled>🖨 Print</button>
+        <button class="btn-secondary btn-sm" id="resetBtn" disabled style="background:#2a1620;color:#ff9a9a;border-color:#5a2634;">⟲ Reset draw</button>
+      </div>
+      <div style="font-size:11.5px;color:var(--muted);margin-top:8px;">
+        After the draw: download <b style="color:var(--text)">teams.json</b>, replace <code>data/teams.json</code> in the repo with it, then commit &amp; push so the site's Fixtures/Teams info updates.
+      </div>
+
+      <h3 style="margin-top:20px;">Team rosters (admin view)</h3>
+      <div class="teams-grid" id="adminTeamsGrid" style="max-height:420px;overflow-y:auto;"></div>
+    </div>
+  </div>
+</main>
+
+<footer class="page-foot">Admin control panel · 2026 MAR&amp;MOR Staff Football Tournament</footer>
+
+<script src="assets/nav.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  function buildSnakeOrder(numTeams, totalPicks){
+    const order = [];
+    let round = 0;
+    while (order.length < totalPicks){
+      const seq = [];
+      for (let i = 0; i < numTeams; i++) seq.push(i);
+      if (round % 2 === 1) seq.reverse();
+      const remaining = totalPicks - order.length;
+      const take = Math.min(numTeams, remaining);
+      for (let i = 0; i < take; i++) order.push(seq[i]);
+      round++;
+    }
+    return order;
+  }
+  function escapeHtml(s){
+    return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+  function secureRandomIndex(max){
+    if (window.crypto && crypto.getRandomValues){
+      const arr = new Uint32Array(1);
+      crypto.getRandomValues(arr);
+      return arr[0] % max;
+    }
+    return Math.floor(Math.random() * max);
+  }
+  function shuffleCopy(arr){
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--){
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  }
+
+  const DEFAULT_NAMES = [
+"ABDU BUBA Vannajigelar","Abdulaziz Alasa","ABDULQOYUM SANNI","AbdulRaheem Okikiola Malik","Abiola saheed",
+"Abraham Effiong Essang","ABUBAKAR TOHEEB","ADEGBAJU ADEBAYO","Adejumobi adeyemi","Adekanmi Adejuwon",
+"Adekunle Ridwan","Adeniyi Amusa","ADEOGUN ADETUNJI","Adeoye Peter","Adenuga Daniel Ayomide",
+"Adewale abdulmajeed","Adewuyi Adebowale","ADEYEMI MOSES","Adeyemi paul","AFEEZ OLADIMEJJ",
+"Afolabi Khalil","AJAYI BABATUNDE","Ajibola David","AJIGBOYE OMOWOLE FESTUS","Ajir Zurumter",
+"AJOSE DANIEL","Akande Emmanuel Ayodeji","Akhigbe Victory","Akinbowale Abass Ayodeji","Akinsanya quadri olamide",
+"Akintunde tosin","Akorede Adegboyegun","ALABI FATAI","ALAKE AYOMIDE","Aliyu Muhideen",
+"ALUKO stephen","AMUSAT OLAWALE MARTINS","anifowoshe Hamzat ayinde","ANUSIEM EBUKA","APEH JOSEPH JESUS",
+"Awobiyi Sunday bukola","Ayodeji Abdulquadri Abiola","AZEEM ABIODUN","AZEEZ EGBELEKE","Azeez ishola Balaale",
+"Azeez Owoyele","AZIZ ABU","Babatunde Semiu","Bankole Temidayo Isaac","Bela jonah",
+"Bello Emmanuel","Benson Akaninyene","BENSON CHUKWUEBUKA IBEAKAMMA","Chinemelum Chika","CHINOYEREM EMMANUEL",
+"Christian Ebute john","Chukwuemelie Innocent Akunne","Damilola Dennis Emmanuel","Daniel mayowa","Daniel okwose chukwunekwu",
+"Dare Ibukunoluwa","Emmanuel Anthony Inyang","Emmanuel Effiong Bassey","Emmanuel Effiong Essang","Emmanuel Effiong okon",
+"EMMANUEL NANZA DENNIS","Emmanuel Popoola","Sam Owoedinyene","Ephraim Costa","EZEKIEL CHUKWUEMEKA",
+"EZEKIEL DAVID","Femi Mathew","fofana dolapo","Gafar Idris oluwambe","Ganeey Ahmed",
+"GARBRAH TEMILOLUWA","Gbenu Phillip","Habibullahi Adio","Hamzat Mustapha Adeyosoye","Idowu Sunday Olanrewaju",
+"Isaac Emmanuel","Jamiu Banjo","Jefferey Eghenege","Jesufewa Ojumu-Olatunji","Joseph Effiong Okon",
+"KALU SIMPLE","Kounate joshua","Kufre Effeh","Matthew Kingsley Francis","MICHAEL SERIBO",
+"Moses Chibueze","Moses effiong edet","MUIZ ADEDEJI","Muritala lukman","Mustapha Habeeb",
+"NNAMANI EMMANUEL","Obayomi Daud","OBIAKOR KAMSI","Obioma Ugonna","OGBU EMMANUEL",
+"OGOOLUWA OLAYINKA","OGUNJOBI TOBI","Ojo ifeoluwa olowolagba","Okey Henry Ejike","OLADEJO SUNDAY",
+"Oladepo Gbolahan Michael","Olajubu Emmanuel Ololade","Olakunde Samson","Olalekan Egunjobi","Olamide Ibrahim",
+"Olaniyi mayowa","Olarenwaju Gbemisola","OLATUNJI MOJUBA","Oloyede oladipupo","Olufemi Ojinni",
+"OLUSANYA TEMITOPE MICHEAL","OLUSHOLA BABATUNDE OLUMIDE","OLUWADAMILARE EMMANUEL","Oluwatosin Peter Afolayan","Omotosho Ayotunde",
+"ONJE PETER","Opemipo ogedengbe","OPEYEMI SAMUEL LAWAL","Oputu Simeon Laju","Orji Smart",
+"Oseni Afeez Temitope","Otusanya Bolaji Malik","Ove Samson","Paul-Anthony Ekunju Ntol","Peter Adeyemi",
+"RASAQ MUBARAQ OLAMILEKAN","Rasheed Ademuyiwa","Razaq adam opeyemi","RIDWAN BOLAKALE","Sadare Saheed",
+"Sebastine oladotun","Shedrack iliya","TAIWO YUSUF","TOBI MAMORA","Uche Sobechukwu Joshua",
+"UGOCHUKWU EGBUNE","UniChi chigemezu John","Victor Adeyemo"
+  ];
+
+  let allNames = [], teamNames = [], pool = [], rosters = [], history = [], pickOrder = [];
+  let displayWin = null, autoOn = false, waitingForAck = false, closeWatcher = null;
+
+  const dropZone = document.getElementById('dropZone');
+  const fileInput = document.getElementById('fileInput');
+  const namesInput = document.getElementById('namesInput');
+  const nameCount = document.getElementById('nameCount');
+  const teamsInput = document.getElementById('teamsInput');
+  const lockInBtn = document.getElementById('lockInBtn');
+  const openDisplayBtn = document.getElementById('openDisplayBtn');
+  const popupHint = document.getElementById('popupHint');
+  const connPill = document.getElementById('connPill');
+  const connLabel = document.getElementById('connLabel');
+  const drawBtn = document.getElementById('drawBtn');
+  const autoBtn = document.getElementById('autoBtn');
+  const undoBtn = document.getElementById('undoBtn');
+  const resyncBtn = document.getElementById('resyncBtn');
+  const exportCsvBtn = document.getElementById('exportCsvBtn');
+  const exportJsonBtn = document.getElementById('exportJsonBtn');
+  const printBtn = document.getElementById('printBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const speedRange = document.getElementById('speedRange');
+  const progressFill = document.getElementById('progressFill');
+  const progressLabel = document.getElementById('progressLabel');
+  const pickLog = document.getElementById('pickLog');
+  const adminTeamsGrid = document.getElementById('adminTeamsGrid');
+
+  namesInput.value = DEFAULT_NAMES.join('\n');
+
+  function parseNames(raw){ return raw.split('\n').map(s => s.trim()).filter(Boolean); }
+  function parseTeams(raw){ return raw.split('\n').map(s => s.trim()).filter(Boolean); }
+
+  updateNameCount();
+  namesInput.addEventListener('input', updateNameCount);
+  teamsInput.addEventListener('input', updateNameCount);
+  function updateNameCount(){
+    const n = parseNames(namesInput.value).length;
+    nameCount.textContent = n + ' names loaded';
+    nameCount.className = 'count-pill' + (n > 0 ? ' ok' : '');
+    document.getElementById('headerCount').textContent = n;
+    document.getElementById('nameCountHeader').textContent = n;
+    const numTeams = parseTeams(teamsInput.value).length;
+    document.getElementById('headerTeamCount').textContent = numTeams;
+    updateSplitPreview(n, numTeams);
+  }
+  function updateSplitPreview(n, numTeams){
+    const el = document.getElementById('splitPreview');
+    if (!n || !numTeams){ el.textContent = '—'; return; }
+    const order = buildSnakeOrder(numTeams, n);
+    const counts = {};
+    order.forEach(t => counts[t] = (counts[t]||0) + 1);
+    const sizeCounts = {};
+    Object.values(counts).forEach(s => sizeCounts[s] = (sizeCounts[s]||0) + 1);
+    const parts = Object.keys(sizeCounts).sort((a,b)=>b-a).map(size => sizeCounts[size] + ' team' + (sizeCounts[size]>1?'s':'') + ' of ' + size);
+    el.textContent = parts.join(' and ');
+  }
+
+  // ---- file import ----
+  dropZone.addEventListener('click', () => fileInput.click());
+  ['dragover','dragenter'].forEach(evt => dropZone.addEventListener(evt, e => { e.preventDefault(); dropZone.classList.add('drag'); }));
+  ['dragleave','drop'].forEach(evt => dropZone.addEventListener(evt, e => { e.preventDefault(); dropZone.classList.remove('drag'); }));
+  dropZone.addEventListener('drop', e => { if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]); });
+  fileInput.addEventListener('change', e => { if (e.target.files.length) handleFile(e.target.files[0]); });
+
+  function handleFile(file){
+    const reader = new FileReader();
+    reader.onload = function(e){
+      let names = [];
+      try{
+        if (/\.csv$/i.test(file.name)){
+          const wb = XLSX.read(e.target.result, {type:'string'});
+          names = extractFromWorkbook(wb);
+        } else {
+          const wb = XLSX.read(new Uint8Array(e.target.result), {type:'array'});
+          names = extractFromWorkbook(wb);
+        }
+      }catch(err){
+        alert('Could not read that file. Try exporting it as CSV, or paste the names into the text box instead.');
+        return;
+      }
+      namesInput.value = names.join('\n');
+      updateNameCount();
+    };
+    if (/\.csv$/i.test(file.name)) reader.readAsText(file);
+    else reader.readAsArrayBuffer(file);
+  }
+  function extractFromWorkbook(wb){
+    const sheet = wb.Sheets[wb.SheetNames[0]];
+    const rows = XLSX.utils.sheet_to_json(sheet, {header:1});
+    let names = [];
+    for (const row of rows){
+      if (!row || !row.length) continue;
+      const cell = row[0];
+      if (cell === undefined || cell === null) continue;
+      const val = String(cell).trim();
+      if (!val) continue;
+      const low = val.toLowerCase();
+      if (['name','names','full name','fullname','employee name','participant','participant name'].includes(low)) continue;
+      names.push(val);
+    }
+    return names;
+  }
+
+  // ---- open display window ----
+  openDisplayBtn.addEventListener('click', () => {
+    displayWin = window.open('draw-display.html', 'drawDisplay', 'width=1600,height=920,menubar=no,toolbar=no,location=no,status=no');
+    setConn('connecting', 'Opening display…');
+    popupHint.classList.toggle('hidden', !!displayWin);
+    if (closeWatcher) clearInterval(closeWatcher);
+    closeWatcher = setInterval(() => {
+      if (displayWin && displayWin.closed){
+        setConn('off', 'Display window closed');
+        clearInterval(closeWatcher);
+      }
+    }, 1500);
+  });
+
+  function setConn(state, label){
+    connPill.className = 'conn-pill ' + state;
+    connLabel.textContent = label;
+  }
+
+  window.addEventListener('message', (e) => {
+    if (!e.data || !e.data.type) return;
+    if (e.data.type === 'ready'){
+      setConn('connected', 'Display connected');
+      syncDisplay();
+    } else if (e.data.type === 'landed-ack'){
+      waitingForAck = false;
+      drawBtn.disabled = (history.length >= pickOrder.length);
+      if (autoOn && history.length < pickOrder.length){
+        setTimeout(() => { if (autoOn) drawNext(); }, parseInt(speedRange.value, 10));
+      }
+    }
+  });
+
+  function post(msg){
+    if (displayWin && !displayWin.closed){
+      try{ displayWin.postMessage(msg, '*'); }catch(err){}
+    }
+  }
+  function syncDisplay(){
+    if (!pickOrder.length) return;
+    post({type:'init', teamNames, totalPicks: pickOrder.length});
+    post({type:'sync', teamNames, totalPicks: pickOrder.length, rosters});
+  }
+
+  // ---- lock in ----
+  lockInBtn.addEventListener('click', () => {
+    if (history.length && !confirm('This resets the current draw progress. Continue?')) return;
+    allNames = parseNames(namesInput.value);
+    teamNames = parseTeams(teamsInput.value);
+    if (allNames.length < 2){ alert('Please load at least a couple of names.'); return; }
+    if (teamNames.length < 2){ alert('Please list at least two team names.'); return; }
+
+    pool = shuffleCopy(allNames);
+    rosters = teamNames.map(() => []);
+    history = [];
+    pickOrder = buildSnakeOrder(teamNames.length, allNames.length);
+
+    renderAdminTeams();
+    updateProgress();
+    pickLog.innerHTML = '<div class="entry">No picks yet.</div>';
+
+    drawBtn.disabled = false;
+    autoBtn.disabled = false;
+    undoBtn.disabled = true;
+    resyncBtn.disabled = false;
+    exportCsvBtn.disabled = false;
+    exportJsonBtn.disabled = false;
+    printBtn.disabled = false;
+    resetBtn.disabled = false;
+
+    syncDisplay();
+  });
+
+  resyncBtn.addEventListener('click', syncDisplay);
+
+  function renderAdminTeams(){
+    adminTeamsGrid.innerHTML = '';
+    teamNames.forEach((tn, idx) => {
+      const target = pickOrder.filter(t => t === idx).length;
+      const card = document.createElement('div');
+      card.className = 'team-card';
+      card.id = 'admin-team-' + idx;
+      card.innerHTML = '<h3>' + escapeHtml(tn) + '<span class="cnt" id="admin-cnt-' + idx + '">0/' + target + '</span></h3><ol id="admin-list-' + idx + '"></ol>';
+      adminTeamsGrid.appendChild(card);
+    });
+  }
+
+  function updateProgress(){
+    const done = history.length, total = pickOrder.length;
+    progressFill.style.width = (total ? (done/total*100) : 0) + '%';
+    progressLabel.textContent = total ? (done + ' of ' + total + ' drawn') : 'Not started';
+  }
+
+  function logEntry(text, isUndo){
+    const div = document.createElement('div');
+    div.className = 'entry' + (isUndo ? ' undo' : '');
+    div.innerHTML = text;
+    if (pickLog.firstChild && pickLog.firstChild.textContent === 'No picks yet.') pickLog.innerHTML = '';
+    pickLog.insertBefore(div, pickLog.firstChild);
+  }
+
+  // ---- draw ----
+  function drawNext(){
+    if (waitingForAck) return;
+    if (history.length >= pickOrder.length || pool.length === 0) return;
+
+    const teamIdx = pickOrder[history.length];
+    const idx = secureRandomIndex(pool.length);
+    const name = pool.splice(idx, 1)[0];
+    rosters[teamIdx].push(name);
+    history.push({name, teamIdx});
+
+    const li = document.createElement('li');
+    li.textContent = name;
+    document.getElementById('admin-list-' + teamIdx).appendChild(li);
+    document.getElementById('admin-cnt-' + teamIdx).textContent = rosters[teamIdx].length + '/' + pickOrder.filter(t=>t===teamIdx).length;
+
+    logEntry('<b>Pick ' + history.length + '</b> — ' + escapeHtml(name) + ' → ' + escapeHtml(teamNames[teamIdx]));
+    updateProgress();
+
+    drawBtn.disabled = true;
+    undoBtn.disabled = false;
+    waitingForAck = true;
+
+    post({type:'draw', teamIdx, teamName: teamNames[teamIdx], playerName: name, pickNum: history.length, total: pickOrder.length});
+
+    if (history.length >= pickOrder.length){
+      autoOn = false;
+      autoBtn.textContent = '▶ Auto-play';
+      autoBtn.disabled = true;
+    }
+  }
+  drawBtn.addEventListener('click', drawNext);
+
+  autoBtn.addEventListener('click', () => {
+    autoOn = !autoOn;
+    autoBtn.textContent = autoOn ? '⏸ Pause' : '▶ Auto-play';
+    if (autoOn && !waitingForAck) drawNext();
+  });
+
+  undoBtn.addEventListener('click', () => {
+    if (!history.length) return;
+    const last = history.pop();
+    rosters[last.teamIdx].pop();
+    pool.push(last.name);
+
+    const list = document.getElementById('admin-list-' + last.teamIdx);
+    if (list.lastElementChild) list.removeChild(list.lastElementChild);
+    document.getElementById('admin-cnt-' + last.teamIdx).textContent = rosters[last.teamIdx].length + '/' + pickOrder.filter(t=>t===last.teamIdx).length;
+
+    logEntry('↩ Undid pick ' + (history.length + 1) + ' — ' + escapeHtml(last.name), true);
+    updateProgress();
+
+    drawBtn.disabled = false;
+    autoBtn.disabled = false;
+    undoBtn.disabled = history.length === 0;
+    autoOn = false;
+    autoBtn.textContent = '▶ Auto-play';
+
+    post({type:'undo', teamIdx: last.teamIdx, playerName: last.name, pickNum: history.length, total: pickOrder.length});
+  });
+
+  resetBtn.addEventListener('click', () => {
+    if (!confirm('Start a brand new draw? This clears all current picks on both windows.')) return;
+    autoOn = false;
+    pool = shuffleCopy(allNames);
+    rosters = teamNames.map(() => []);
+    history = [];
+    renderAdminTeams();
+    updateProgress();
+    pickLog.innerHTML = '<div class="entry">No picks yet.</div>';
+    drawBtn.disabled = false;
+    autoBtn.disabled = false; autoBtn.textContent = '▶ Auto-play';
+    undoBtn.disabled = true;
+    post({type:'reset'});
+    setTimeout(syncDisplay, 150);
+  });
+
+  exportCsvBtn.addEventListener('click', () => {
+    let csv = 'Pick Number,Team,Player Name\n';
+    history.forEach((h, i) => {
+      csv += (i+1) + ',"' + teamNames[h.teamIdx].replace(/"/g,'""') + '","' + h.name.replace(/"/g,'""') + '"\n';
+    });
+    downloadBlob(csv, 'text/csv', 'team_draw_results.csv');
+  });
+
+  exportJsonBtn.addEventListener('click', () => {
+    const payload = {
+      _readme: "Generated by draw-admin.html's 'Export teams.json' button after the live draw. Replace data/teams.json in the repo with this file, then commit + push.",
+      drawCompleted: history.length >= pickOrder.length,
+      drawDate: new Date().toISOString().slice(0,10),
+      teams: teamNames.map((tn, idx) => ({name: tn, players: rosters[idx]}))
+    };
+    downloadBlob(JSON.stringify(payload, null, 2), 'application/json', 'teams.json');
+  });
+
+  function downloadBlob(content, type, filename){
+    const blob = new Blob([content], {type});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  printBtn.addEventListener('click', () => window.print());
+})();
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+</body>
+</html>

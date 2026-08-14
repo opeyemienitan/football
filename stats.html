@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Stats — 2026 MAR&amp;MOR Staff Football Tournament</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="stylesheet" href="assets/style.css" />
+</head>
+<body data-page="stats">
+
+<div id="site-nav"></div>
+
+<header class="page-head">
+  <h1>Tournament Stats</h1>
+  <p>Results, top scorers, and progress through the knockout</p>
+</header>
+
+<main id="mainContent">
+  <div class="empty-state"><div class="big">⏳</div>Loading stats…</div>
+</main>
+
+<footer class="page-foot">2026 MAR&amp;MOR Staff Football Tournament</footer>
+
+<script src="assets/nav.js"></script>
+<script>
+(function(){
+  "use strict";
+
+  fetch('data/fixtures.json').then(r => {
+    if (!r.ok) throw new Error('fetch failed');
+    return r.json();
+  }).then(render).catch(() => {
+    document.getElementById('mainContent').innerHTML =
+      '<div class="empty-state"><div class="big">⚠️</div>Could not load stats data.<br><span style="font-size:12px;">' +
+      'If you\'re viewing this file locally, run a local server (e.g. <code>npx serve</code>) — browsers block loading data/fixtures.json directly from disk.</span></div>';
+  });
+
+  function render(data){
+    const results = data.results || {};
+    const r16 = data.r16Pairs;
+
+    // Build a lookup of every match id -> {teamA, teamB} using the same bracket-resolution logic as fixtures.html
+    function winnerOf(res){
+      if (!res || res.scoreA == null || res.scoreB == null) return null;
+      if (res.scoreA > res.scoreB) return 'A';
+      if (res.scoreB > res.scoreA) return 'B';
+      if (res.penA != null && res.penB != null){
+        if (res.penA > res.penB) return 'A';
+        if (res.penB > res.penA) return 'B';
+      }
+      return null;
+    }
+    const qf = [];
+    for (let i = 0; i < r16.length; i += 2){
+      const m1 = r16[i], m2 = r16[i+1];
+      const w1 = winnerOf(results[m1.id]), w2 = winnerOf(results[m2.id]);
+      qf.push({id:'QF-'+(i/2), teamA: w1 ? (w1==='A'?m1.teamA:m1.teamB) : null, teamB: w2 ? (w2==='A'?m2.teamA:m2.teamB) : null});
+    }
+    const sf = [];
+    for (let i = 0; i < qf.length; i += 2){
+      const m1 = qf[i], m2 = qf[i+1];
+      const w1 = winnerOf(results[m1.id]), w2 = winnerOf(results[m2.id]);
+      sf.push({id:'SF-'+(i/2), teamA: w1 ? (w1==='A'?m1.teamA:m1.teamB) : null, teamB: w2 ? (w2==='A'?m2.teamA:m2.teamB) : null});
+    }
+    const sf0win = winnerOf(results['SF-0']), sf1win = winnerOf(results['SF-1']);
+    const finalMatch = {id:'F-0', teamA: sf0win ? (sf0win==='A'?sf[0].teamA:sf[0].teamB) : null, teamB: sf1win ? (sf1win==='A'?sf[1].teamA:sf[1].teamB) : null};
+    const thirdPlace = {id:'3P-0', teamA: sf0win ? (sf0win==='A'?sf[0].teamB:sf[0].teamA) : null, teamB: sf1win ? (sf1win==='A'?sf[1].teamB:sf[1].teamA) : null};
+    const allMatches = [...r16, ...qf, ...sf, thirdPlace, finalMatch];
+
+    // ---- Top scorers ----
+    const scorers = {};
+    Object.keys(results).forEach(id => {
+      const res = results[id];
+      (res.scorersA || []).forEach(s => { scorers[s.name] = (scorers[s.name]||0) + (s.goals||1); });
+      (res.scorersB || []).forEach(s => { scorers[s.name] = (scorers[s.name]||0) + (s.goals||1); });
+    });
+    const scorerRows = Object.keys(scorers).map(name => ({name, goals: scorers[name]})).sort((a,b) => b.goals - a.goals);
+
+    // ---- Results log (played matches only, most recent first by round order) ----
+    const roundLabel = id => id.startsWith('R16') ? 'Round of 16' : id.startsWith('QF') ? 'Quarter-Final' : id.startsWith('SF') ? 'Semi-Final' : id.startsWith('3P') ? '3rd Place' : 'Final';
+    const played = allMatches.filter(m => {
+      const res = results[m.id];
+      return res && res.scoreA != null && res.scoreB != null && m.teamA && m.teamB;
+    }).reverse();
+
+    // ---- Progress ----
+    const totalMatches = allMatches.length;
+    const playedCount = played.length;
+    const teamsRemaining = 16 - played.filter(m => m.id.startsWith('R16') || m.id.startsWith('QF') || m.id.startsWith('SF') || m.id==='F-0').length;
+
+    let html = '';
+
+    html += '<div class="grid3">' +
+      statCard('Matches Played', playedCount + ' / ' + totalMatches) +
+      statCard('Teams Remaining', Math.max(1, teamsRemaining <= 0 ? 1 : teamsRemaining)) +
+      statCard('Goals Scored', Object.values(results).reduce((sum,r) => sum + (r.scoreA||0) + (r.scoreB||0), 0)) +
+    '</div>';
+
+    html += '<div class="panel"><h2>🥇 Top Scorers</h2>';
+    if (scorerRows.length === 0){
+      html += '<div class="empty-state" style="padding:30px 20px;"><div class="big">⚽</div>No goals recorded yet — check back after Matchday 1.</div>';
+    } else {
+      html += '<table><thead><tr><th>#</th><th>Player</th><th class="num">Goals</th></tr></thead><tbody>';
+      scorerRows.forEach((s, i) => {
+        html += '<tr class="' + (i===0?'pos-1':i===1?'pos-2':'') + '"><td>' + (i+1) + '</td><td>' + escapeHtml(s.name) + '</td><td class="num">' + s.goals + '</td></tr>';
+      });
+      html += '</tbody></table>';
+    }
+    html += '</div>';
+
+    html += '<div class="panel"><h2>📋 Results</h2>';
+    if (played.length === 0){
+      html += '<div class="empty-state" style="padding:30px 20px;"><div class="big">🏁</div>The season hasn\'t kicked off yet. First matches: Friday, 28 August 2026.</div>';
+    } else {
+      html += '<table><thead><tr><th>Round</th><th>Match</th><th class="num">Score</th></tr></thead><tbody>';
+      played.forEach(m => {
+        const res = results[m.id];
+        html += '<tr><td><span class="pill">' + roundLabel(m.id) + '</span></td><td>' + escapeHtml(m.teamA) + ' vs ' + escapeHtml(m.teamB) + '</td>' +
+          '<td class="num"><b>' + res.scoreA + ' – ' + res.scoreB + '</b>' + (res.penA!=null ? ' <span style="color:var(--muted);font-size:11px;">(pens ' + res.penA + '-' + res.penB + ')</span>' : '') + '</td></tr>';
+      });
+      html += '</tbody></table>';
+    }
+    html += '</div>';
+
+    document.getElementById('mainContent').innerHTML = html;
+  }
+
+  function statCard(label, value){
+    return '<div class="panel" style="text-align:center;"><div style="font-size:32px;font-weight:800;color:var(--gold2);">' + value + '</div>' +
+      '<div style="color:var(--muted);font-size:12.5px;margin-top:6px;text-transform:uppercase;letter-spacing:.5px;">' + label + '</div></div>';
+  }
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+})();
+</script>
+</body>
+</html>
