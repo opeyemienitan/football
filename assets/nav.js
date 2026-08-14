@@ -8,8 +8,8 @@
     {href:'stats.html', label:'Stats', key:'stats'}
   ];
   var html = '<a href="index.html" class="brand">' +
-      '<img src="assets/logo.svg" alt="MAR&amp;MOR" class="brand-icon">' +
-      '<span class="brand-text"><span class="brand-word">MAR&amp;MOR</span><span class="brand-sub">Staff Football Tournament 2026</span></span>' +
+      '<img src="assets/logo.png" alt="MAR&amp;MOR Engineering Services" class="brand-icon">' +
+      '<span class="brand-text"><span class="brand-sub">Staff Football Tournament 2026</span></span>' +
     '</a><div class="links">' +
     links.map(function(l){
       return '<a href="' + l.href + '"' + (l.key === page ? ' class="active"' : '') + '>' + l.label + '</a>';
