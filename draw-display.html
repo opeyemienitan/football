@@ -100,12 +100,44 @@
   .controls-row-sub{display:flex;justify-content:space-between;flex-wrap:wrap;gap:10px;margin-bottom:18px;align-items:center;}
   .ctrl-btns-sub{display:flex;gap:6px;flex-wrap:wrap;}
   #startBtn{background:linear-gradient(135deg,var(--blue),var(--brand-darkest));color:#fff;}
+  .speed-btn.active{background:linear-gradient(135deg,var(--accent),var(--brand-darkest));color:#fff;border-color:transparent;}
 </style>
 </head>
 <body data-page="draw">
 
 <div id="site-nav"></div>
 <canvas id="confetti-canvas"></canvas>
+
+<script type="module">
+  // Live cross-device sync: any visitor to this page (not just the organizer's
+  // own browser) sees the draw update in real time. Free Firebase Realtime
+  // Database, client-side only — no server code involved.
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+  import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDPDdoS_MmiYKlX2Vu2fAXB_ax628Q3-pM",
+    authDomain: "football-7d8c2.firebaseapp.com",
+    databaseURL: "https://football-7d8c2-default-rtdb.firebaseio.com",
+    projectId: "football-7d8c2",
+    storageBucket: "football-7d8c2.firebasestorage.app",
+    messagingSenderId: "940066375674",
+    appId: "1:940066375674:web:5180292870e19828e3c643"
+  };
+
+  try{
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const stateRef = ref(db, 'drawState');
+    window.marmorSync = {
+      push(state){ try{ set(stateRef, state); }catch(err){ console.warn('marmorSync push failed', err); } },
+      subscribe(cb){ onValue(stateRef, (snap) => cb(snap.val())); }
+    };
+  }catch(err){
+    console.warn('marmorSync init failed', err);
+  }
+  window.dispatchEvent(new Event('marmorSyncReady'));
+</script>
 
 <header class="page-head">
   <h1>2026 MAR&amp;MOR Football Tournament — Live Team Allocation Draw</h1>
@@ -130,9 +162,17 @@
     </div>
   </div>
   <div class="controls-row-sub">
-    <div style="display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px;">
-      Pace between picks (auto-play)
-      <input type="range" id="paceRange" min="800" max="4000" step="100" value="1800">
+    <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+      <div style="display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px;">
+        Pace between picks (auto-play)
+        <input type="range" id="paceRange" min="800" max="4000" step="100" value="1800">
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <span style="font-size:12px;color:var(--muted);">Speed</span>
+        <button class="btn-secondary btn-sm speed-btn active" data-speed="1">1x</button>
+        <button class="btn-secondary btn-sm speed-btn" data-speed="2">2x</button>
+        <button class="btn-secondary btn-sm speed-btn" data-speed="3">3x</button>
+      </div>
     </div>
     <div class="ctrl-btns-sub">
       <button class="btn-secondary btn-sm" id="exportCsvBtn" disabled>⬇ CSV</button>
@@ -255,20 +295,24 @@
   const printBtn = document.getElementById('printBtn');
 
   let teamNames = TEAM_NAMES.slice(), totalPicks = DISPLAY_ALL_NAMES.length, pickOrder = [], rosters = [], spinTimer = null;
-  let pool = [], history = [], autoOn = false, isAnimating = false;
+  let pool = [], history = [], autoOn = false, isAnimating = false, speedMultiplier = 1;
 
-  // ---- persist state to localStorage so draw-admin.html (opened on this same
-  // computer/browser) can show a live-synced backup and export results, even if
-  // the CSV/teams.json is never downloaded from this page. Same-origin only. ----
+  // Organizer opens this page with ?admin in the URL to get the controls.
+  // Everyone else (the public link, the site nav, "Watch the Live Draw") gets
+  // a read-only view that updates live via Firebase as the organizer draws.
+  const isAdmin = new URLSearchParams(location.search).has('admin');
+
+  // ---- persist state to localStorage (same-device backup for draw-admin.html)
+  // and push it to Firebase (so any visitor, on any device, sees it live). ----
   const STORAGE_KEY = 'marmorDrawState_v1';
   function persistState(){
-    try{
-      localStorage.setItem(STORAGE_KEY, JSON.stringify({
-        teamNames, pickOrder, rosters, history,
-        totalPicks: pickOrder.length,
-        updatedAt: Date.now()
-      }));
-    }catch(err){}
+    const payload = {
+      teamNames, pickOrder, rosters, history,
+      totalPicks: pickOrder.length,
+      updatedAt: Date.now()
+    };
+    try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(payload)); }catch(err){}
+    if (window.marmorSync) window.marmorSync.push(payload);
   }
 
   fullscreenBtn.addEventListener('click', () => {
@@ -282,11 +326,175 @@
   post({type:'ready'});
   setTimeout(() => post({type:'ready'}), 400); // harmless if no admin window is open
 
-  // ---- initial render (this page runs standalone — no admin window needed) ----
-  pickOrder = buildSnakeOrder(teamNames.length, totalPicks);
-  rosters = teamNames.map(() => []);
-  renderTeams();
-  updateProgress(0, totalPicks);
+  // ---- restore progress after a refresh, instead of losing it ----
+  function tryRestore(){
+    let raw;
+    try{ raw = localStorage.getItem(STORAGE_KEY); }catch(err){ raw = null; }
+    if (!raw) return false;
+    let saved;
+    try{ saved = JSON.parse(raw); }catch(err){ return false; }
+    if (!saved || !saved.teamNames || !saved.pickOrder || !saved.rosters || !saved.history || !saved.history.length) return false;
+
+    teamNames = saved.teamNames;
+    pickOrder = saved.pickOrder;
+    rosters = saved.rosters.map(arr => arr.slice());
+    history = saved.history.slice();
+    totalPicks = saved.totalPicks || pickOrder.length;
+
+    const drawnNames = new Set();
+    rosters.forEach(r => r.forEach(n => drawnNames.add(n)));
+    pool = shuffleCopy(DISPLAY_ALL_NAMES.filter(n => !drawnNames.has(n)));
+
+    renderTeams(true);
+    updateProgress(history.length, pickOrder.length);
+
+    const last = history[history.length - 1];
+    nameStage.classList.add('landed');
+    nameStage.textContent = last.name;
+    nextTeamName.textContent = teamNames[last.teamIdx];
+
+    startBtn.disabled = true; startBtn.style.display = 'none';
+    undoBtn.disabled = false;
+
+    if (history.length >= pickOrder.length){
+      doneBanner.style.display = 'block';
+      pickMeta.textContent = 'Draw complete — restored after refresh.';
+      drawBtn.disabled = true; autoBtn.disabled = true;
+      exportCsvBtn.disabled = false; exportJsonBtn.disabled = false; printBtn.disabled = false;
+    } else {
+      pickMeta.textContent = history.length + ' of ' + pickOrder.length + ' already drawn — restored after refresh. Click Draw Name to continue.';
+      drawBtn.disabled = false; autoBtn.disabled = false;
+    }
+    return true;
+  }
+
+  // ---- initial render ----
+  if (isAdmin){
+    if (!tryRestore()){
+      pickOrder = buildSnakeOrder(teamNames.length, totalPicks);
+      rosters = teamNames.map(() => []);
+      renderTeams();
+      updateProgress(0, totalPicks);
+    }
+  } else {
+    // Read-only viewer: hide the organizer-only controls and wait for live
+    // updates from Firebase instead of running any draw logic locally.
+    startBtn.style.display = 'none';
+    drawBtn.style.display = 'none';
+    autoBtn.style.display = 'none';
+    undoBtn.style.display = 'none';
+    const subRow = document.querySelector('.controls-row-sub');
+    if (subRow) subRow.style.display = 'none';
+    const liveBadge = document.createElement('div');
+    liveBadge.style.cssText = 'font-size:12px;color:var(--accent2);margin-top:4px;';
+    liveBadge.textContent = '🔴 Watching live — updates automatically';
+    dProgressLabel.insertAdjacentElement('afterend', liveBadge);
+    pickMeta.textContent = 'Waiting for the organizer to start the draw…';
+    updateProgress(0, totalPicks);
+  }
+
+  document.querySelectorAll('.speed-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      speedMultiplier = parseInt(btn.dataset.speed, 10) || 1;
+      document.querySelectorAll('.speed-btn').forEach(b => b.classList.toggle('active', b === btn));
+    });
+  });
+
+  // ---- viewer-mode: live updates via Firebase (no page reload needed) ----
+  let lastKnownHistoryLen = -1;
+
+  function applyRemoteState(remote){
+    if (!remote || !remote.teamNames || !remote.pickOrder){
+      return; // organizer hasn't clicked Start Draw yet — stay in "waiting" state
+    }
+    const isFirstLoad = (lastKnownHistoryLen === -1);
+    const prevLen = isFirstLoad ? 0 : lastKnownHistoryLen;
+    teamNames = remote.teamNames;
+    pickOrder = remote.pickOrder;
+    rosters = (remote.rosters || []).map(arr => (arr || []).slice());
+    history = (remote.history || []).slice();
+    totalPicks = remote.totalPicks || pickOrder.length;
+
+    if (isFirstLoad){
+      renderTeams(true);
+      updateProgress(history.length, totalPicks);
+      if (history.length){
+        const last = history[history.length - 1];
+        nameStage.classList.add('landed');
+        nameStage.textContent = last.name;
+        nextTeamName.textContent = teamNames[last.teamIdx];
+        pickMeta.textContent = 'Pick ' + history.length + ' of ' + totalPicks + ' — assigned to ' + teamNames[last.teamIdx];
+      } else {
+        pickMeta.textContent = 'Waiting for the next draw…';
+      }
+      if (totalPicks > 0 && history.length >= totalPicks) doneBanner.style.display = 'block';
+      lastKnownHistoryLen = history.length;
+      return;
+    }
+
+    if (history.length > prevLen){
+      const newest = history[history.length - 1];
+      const listEl = document.getElementById('team-list-' + newest.teamIdx);
+      if (listEl && listEl.children.length < rosters[newest.teamIdx].length){
+        const li = document.createElement('li');
+        li.textContent = newest.name;
+        listEl.appendChild(li);
+      }
+      const cntEl = document.getElementById('team-cnt-' + newest.teamIdx);
+      if (cntEl) cntEl.textContent = rosters[newest.teamIdx].length + '/' + pickOrder.filter(t=>t===newest.teamIdx).length;
+      playViewerReveal(newest.teamIdx, newest.name, history.length, totalPicks);
+    } else if (history.length < prevLen){
+      renderTeams(true);
+      updateProgress(history.length, totalPicks);
+      doneBanner.style.display = 'none';
+      pickMeta.textContent = 'A pick was undone by the organizer.';
+    }
+    lastKnownHistoryLen = history.length;
+  }
+
+  function playViewerReveal(teamIdx, name, pickNum, total){
+    document.querySelectorAll('.team-card').forEach(c => c.classList.remove('active'));
+    const activeCard = document.getElementById('team-card-' + teamIdx);
+    if (activeCard){ activeCard.classList.add('active'); activeCard.scrollIntoView({block:'nearest', behavior:'smooth'}); }
+    nextTeamName.textContent = teamNames[teamIdx];
+    nameStage.classList.remove('landed'); void nameStage.offsetWidth;
+    nameStage.textContent = name;
+    nameStage.classList.add('landed');
+    drawOrb.classList.remove('pop'); void drawOrb.offsetWidth; drawOrb.classList.add('pop');
+    flashOverlay.classList.remove('burst'); void flashOverlay.offsetWidth; flashOverlay.classList.add('burst');
+    stageEl.classList.remove('shake'); void stageEl.offsetWidth; stageEl.classList.add('shake');
+    miniSpark();
+    playChime(false);
+    speak(name + ' — ' + teamNames[teamIdx]);
+    updateProgress(pickNum, total);
+    pickMeta.textContent = 'Pick ' + pickNum + ' of ' + total + ' — assigned to ' + teamNames[teamIdx];
+
+    if (pickNum >= total){
+      doneBanner.style.display = 'block';
+      bigConfetti();
+      playChime(true);
+      nextTeamName.textContent = '— Draw complete —';
+      setTimeout(() => speak('Draw complete! All 143 players have been allocated.'), 1200);
+    } else if (pickNum % teamNames.length === 0){
+      setTimeout(() => {
+        pickMeta.textContent = '🔀 Reshuffling team positions for the next round…';
+        shuffleTilesAnimated(() => { pickMeta.textContent = 'Waiting for the next draw…'; });
+      }, 500);
+    }
+  }
+
+  function initViewerSync(){
+    if (!window.marmorSync) return;
+    window.marmorSync.subscribe(applyRemoteState);
+  }
+
+  if (!isAdmin){
+    if (window.marmorSync) initViewerSync();
+    else window.addEventListener('marmorSyncReady', initViewerSync, {once:true});
+    setTimeout(() => {
+      if (!window.marmorSync) pickMeta.textContent = 'Live sync unavailable right now — please join the Teams call to watch, or check back here after the draw.';
+    }, 8000);
+  }
 
   // ---- on-screen controls (visible to everyone you're screen-sharing to) ----
   startBtn.addEventListener('click', () => {
@@ -450,16 +658,17 @@
       c.style.transform = 'translate(' + dx + 'px,' + dy + 'px)';
     });
     void teamsGrid.offsetWidth; // force reflow
+    const dur = Math.max(0.22, 0.6 / speedMultiplier);
     requestAnimationFrame(() => {
       shuffled.forEach(c => {
-        c.style.transition = 'transform .6s cubic-bezier(.4,0,.2,1)';
+        c.style.transition = 'transform ' + dur + 's cubic-bezier(.4,0,.2,1)';
         c.style.transform = '';
       });
     });
     setTimeout(() => {
       shuffled.forEach(c => { c.style.transition = ''; c.classList.remove('shuffling'); });
       if (callback) callback();
-    }, 650);
+    }, dur * 1000 + 60);
   }
 
   const SPIN_MIN_DELAY = 55, SPIN_MAX_DELAY = 240, SPIN_TOTAL_TICKS = 26;
@@ -485,7 +694,7 @@
     function step(){
       const progress = tick / SPIN_TOTAL_TICKS;
       const eased = 1 - Math.pow(1 - progress, 3);
-      const delay = SPIN_MIN_DELAY + (SPIN_MAX_DELAY - SPIN_MIN_DELAY) * eased;
+      const delay = (SPIN_MIN_DELAY + (SPIN_MAX_DELAY - SPIN_MIN_DELAY) * eased) / speedMultiplier;
       const rnd = flickerPool.length ? flickerPool[Math.floor(Math.random()*flickerPool.length)] : finalName;
       nameStage.textContent = rnd;
       nameStage.classList.remove('tick'); void nameStage.offsetWidth; nameStage.classList.add('tick');
@@ -553,13 +762,13 @@
         shuffleTilesAnimated(() => {
           pickMeta.textContent = 'Waiting for the next draw…';
           drawBtn.disabled = false;
-          if (autoOn) setTimeout(localDrawNext, parseInt(paceRange.value, 10));
+          if (autoOn) setTimeout(localDrawNext, parseInt(paceRange.value, 10) / speedMultiplier);
         });
       } else {
         drawBtn.disabled = false;
-        if (autoOn) setTimeout(localDrawNext, parseInt(paceRange.value, 10));
+        if (autoOn) setTimeout(localDrawNext, parseInt(paceRange.value, 10) / speedMultiplier);
       }
-    }, 380);
+    }, Math.max(120, 380 / speedMultiplier));
   }
 
   function runUndo(teamIdx, playerName, pickNum, total){
