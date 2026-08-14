@@ -4,12 +4,13 @@
 <meta charset="UTF-8" />
 <title>Draw Admin — 2026 MAR&amp;MOR Staff Football Tournament</title>
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="icon" href="assets/logo.svg" type="image/svg+xml" />
 <link rel="stylesheet" href="assets/style.css" />
 <style>
   .dashboard-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:20px;align-items:start;}
   @media(max-width:950px){.dashboard-grid{grid-template-columns:1fr;}}
   .file-drop{border:2px dashed var(--border2);border-radius:12px;padding:18px;text-align:center;color:var(--muted);cursor:pointer;transition:.15s;font-size:13px;}
-  .file-drop:hover,.file-drop.drag{border-color:var(--gold);color:var(--text);background:rgba(245,179,1,.05);}
+  .file-drop:hover,.file-drop.drag{border-color:var(--accent);color:var(--text);background:rgba(26,128,116,.05);}
   .file-drop input{display:none;}
   textarea{width:100%;background:var(--card2);border:1px solid var(--border2);border-radius:10px;color:var(--text);padding:10px 12px;font-size:13px;font-family:inherit;resize:vertical;height:180px;line-height:1.5;}
   label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px;margin-top:14px;}
@@ -17,7 +18,7 @@
   .count-pill.ok{border-color:var(--green);color:var(--green);}
   .conn-pill{display:inline-flex;align-items:center;gap:6px;background:var(--card2);border:1px solid var(--border2);padding:5px 12px;border-radius:16px;font-size:12.5px;color:var(--muted);}
   .conn-dot{width:8px;height:8px;border-radius:50%;background:var(--muted);}
-  .conn-pill.connecting .conn-dot{background:var(--gold);box-shadow:0 0 8px var(--gold);}
+  .conn-pill.connecting .conn-dot{background:var(--accent);box-shadow:0 0 8px var(--accent);}
   .conn-pill.connected .conn-dot{background:var(--green);box-shadow:0 0 8px var(--green);}
   .conn-pill.off .conn-dot{background:var(--red);}
   .log{max-height:190px;overflow-y:auto;font-size:12.5px;color:var(--text);background:var(--card2);border:1px solid var(--border2);border-radius:10px;padding:8px 12px;}
@@ -26,12 +27,12 @@
   .log .entry b{color:var(--text);}
   .log .entry.undo{color:var(--red);}
   .progress-bar{height:10px;border-radius:6px;background:var(--card2);border:1px solid var(--border2);overflow:hidden;}
-  .progress-fill{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold2));width:0%;transition:width .4s ease;}
+  .progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));width:0%;transition:width .4s ease;}
   .progress-label{font-size:12px;color:var(--muted);margin-top:6px;}
   details summary{cursor:pointer;color:var(--blue);font-size:13px;}
   .teams-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;}
   .team-card{background:var(--card2);border:1px solid var(--border2);border-radius:12px;padding:12px 14px;}
-  .team-card h3{margin:0 0 4px;font-size:13.5px;color:var(--gold2);display:flex;justify-content:space-between;}
+  .team-card h3{margin:0 0 4px;font-size:13.5px;color:var(--accent2);display:flex;justify-content:space-between;}
   .team-card .cnt{font-size:11px;color:var(--muted);font-weight:400;background:var(--card);border-radius:10px;padding:2px 8px;}
   .team-card ol{margin:8px 0 0;padding-left:16px;font-size:12px;color:var(--text);line-height:1.5;max-height:130px;overflow-y:auto;}
 </style>
@@ -107,7 +108,7 @@ Phase FC</textarea>
         <button class="btn-primary" id="lockInBtn">🔒 Lock In Lists &amp; Enable Draw</button>
         <button class="btn-secondary" id="openDisplayBtn">🖥️ Open Display Window</button>
       </div>
-      <div id="popupHint" class="hidden" style="font-size:12px;color:var(--gold2);margin-top:8px;">
+      <div id="popupHint" class="hidden" style="font-size:12px;color:var(--accent2);margin-top:8px;">
         If nothing opened, your browser may have blocked the popup — allow popups for this page, or
         <a id="manualDisplayLink" href="draw-display.html" target="_blank">click here to open it manually</a>.
       </div>

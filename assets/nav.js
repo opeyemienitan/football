@@ -7,7 +7,10 @@
     {href:'fixtures.html', label:'Fixtures', key:'fixtures'},
     {href:'stats.html', label:'Stats', key:'stats'}
   ];
-  var html = '<div class="brand">⚽ MAR&amp;MOR Tournament 2026</div><div class="links">' +
+  var html = '<a href="index.html" class="brand">' +
+      '<img src="assets/logo.svg" alt="MAR&amp;MOR" class="brand-icon">' +
+      '<span class="brand-text"><span class="brand-word">MAR&amp;MOR</span><span class="brand-sub">Staff Football Tournament 2026</span></span>' +
+    '</a><div class="links">' +
     links.map(function(l){
       return '<a href="' + l.href + '"' + (l.key === page ? ' class="active"' : '') + '>' + l.label + '</a>';
     }).join('') + '</div>';
